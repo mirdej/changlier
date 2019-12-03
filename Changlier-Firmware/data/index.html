@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta http-equiv="content-type" content="text/html; charset=utf-8"> <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"> <link rel="stylesheet" href="src/bootstrap.min.css"> <script src="src/jquery-3.4.1.min.js"></script> <script src="src/bootstrap.bundle.min.js"></script> 
+		<title>
+			Changlier - Configuration pour &quot;%HOSTNAME%.local&quot;
+		</title>
+	</head>
+	<body>
+		<div class="container-fluid">
+			<nav class="navbar navbar-expand-lg navbar-light bg-light">
+				<a class="navbar-brand" href="#">
+					Changlier v2.0 by [&nbsp;a&nbsp;n&nbsp;y&nbsp;m&nbsp;a&nbsp;] 
+				</a>
+				<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+					<span class="navbar-toggler-icon">
+					</span>
+				</button>
+				<div class="collapse navbar-collapse" id="navbarSupportedContent">
+					<ul class="navbar-nav mr-auto">
+						<li class="nav-item active">
+							<a class="nav-link" href="#">
+								Home 
+							<span class="sr-only">
+								(current) 
+							</span>
+						</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="#hostname">
+							Hostname 
+						</a>
+					</li>
+				</ul>
+			</div>
+		</nav>
+		<div class="card" id="hostname">
+			<div class="card-header">
+				Hostname 
+			</div>
+			<div class="card-body">
+				<div class="row">
+					<div class="col-sm text-muted">
+						Name of the device on the network 
+					</div>
+					<div class="col-sm">
+						<form class="form-inline my-2 my-lg-0">
+							<input type="text" name="HostName" class="form-control" id="hostname" placeholder="hostname" value="%HOSTNAME%" required>.local 
+						</form>
+					</div>
+					<div class="col-sm text-right">
+						<a href="#" class="btn btn-primary">
+							Save 
+						</a>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="card" id="test">
+			<div class="card-header">
+				Test 
+			</div>
+			<div class="card-body">
+				<div class="row">
+					<div class="col-sm text-muted">
+						Ajax Test
+					</div>
+					<div class="col-sm">
+						<div class="alert alert-primary" id="response">
+						
+						</div>
+											</div>
+					<div class="col-sm text-right">
+						<a href="#" class="btn btn-primary" onclick="getData()">
+							Go 
+						</a>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<script>
+ 
+ 
+function getData() {
+alert("Hi");
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+      document.getElementById("response").innerHTML =
+      this.responseText;
+    }
+  };
+  xhttp.open("GET", "readADC", true);
+  xhttp.send();
+}
+</script>
+</body>
+</html>
