@@ -1,4 +1,4 @@
-#define VERSION "2019-11-28"
+#define VERSION "2019-12-03"
 
 //----------------------------------------------------------------------------------------
 //
@@ -24,18 +24,61 @@
 #include <ESPmDNS.h>
 #include <SPIFFS.h>
 #include "ESPAsyncWebServer.h"
+#include <ArduinoOSC.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <ESP32Servo.h>
+
+OscWiFi osc;
+
 #include <LXESP32DMX.h>
+
+
+//========================================================================================
+//----------------------------------------------------------------------------------------
+//																				DEFINES
+
+// .............................................................................Pins 
+
+const char 	servo_pins[] 			= {32,33,25,26,27,14};
+const char 	BTN_SEL 				= 3;	// Select button
+const char 	BTN_UP 					= 1; // Up
+const char 	DMX_DIRECTION_PIN		= 4;
+const char 	DMX_SERIAL_OUTPUT_PIN 	= 17;
+const char 	DMX_SERIAL_INPUT_PIN 	= 16;
+
+// ..................................................................................... SCREEN
+
+
+#define SCREEN_WIDTH 128 
+#define SCREEN_HEIGHT 32 
+#define OLED_RESET		 -1
+Adafruit_SSD1306 					display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 //========================================================================================
 //----------------------------------------------------------------------------------------
 //																				GLOBALS
 Preferences                             preferences;
 Timer									t;
+Servo 									myservo[6];
+
+
 
 // .............................................................................WIFI STUFF 
 #define WIFI_TIMEOUT					4000
 String 									hostname;
 AsyncWebServer                          server(80);
+long last_packet;
+#define UDP_BUF_SIZE 127
+char udp_packet[UDP_BUF_SIZE];
+
+char servo_val_raw[6];
+
+long packet_count;
+
+//========================================================================================
+//----------------------------------------------------------------------------------------
+//																				IMPLEMENTATION
 
 //----------------------------------------------------------------------------------------
 //																				Preferences
@@ -51,6 +94,19 @@ void setup_read_preferences() {
 	preferences.end();
 }
 
+//----------------------------------------------------------------------------------------
+//																				Restart
+
+
+void restart() {
+	display.clearDisplay();
+	display.setCursor(0,0);
+	display.setTextSize(2);	
+	display.println(F("Restart...")); 
+	display.display();
+	delay(500);
+	ESP.restart();
+}
 //----------------------------------------------------------------------------------------
 //																			file functions
 
@@ -97,7 +153,7 @@ String processor(const String& var){
 //----------------------------------------------------------------------------------------
 //																				WebServer
 
-void setup_webserver() {
+void setup_web_server() {
    WiFi.begin(ssid, pwd);
     long start_time = millis();
     while (WiFi.status() != WL_CONNECTED) { 
@@ -134,7 +190,7 @@ void setup_webserver() {
             request->send(200, "text/text", "Hello");
         });
  
-         server.on("/get", HTTP_GET, [] (AsyncWebServerRequest *request) {
+       server.on("/get", HTTP_GET, [] (AsyncWebServerRequest *request) {
             String inputMessage;
             
             inputMessage = "Nothing done.";           
@@ -151,13 +207,96 @@ void setup_webserver() {
                 Serial.printf("GET[%s]: %s\n", p->name().c_str(), p->value().c_str());
               }
             }
+            
+        if (request->hasParam("hostname")) {
+                inputMessage = request->getParam("hostname")->value();
+                hostname = inputMessage;
+                preferences.begin("changlier", false);
+            	preferences.putString("hostname", hostname);
+                preferences.end();
+
+            } 
+            
             request->send(200, "text/text", inputMessage);
         });
-
+        
+        
         server.begin();
     }
 }
 
+void clear_display() {
+ 		display.clearDisplay();
+		display.display();
+}
+
+void setup_welcome_screen() {
+	display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+	display.setRotation(2); 
+
+ 	display.clearDisplay();
+	display.setTextSize(1);				
+	display.setTextColor(WHITE);
+	display.setCursor(14,0);		
+	display.println(F("STEVE OCTANE TRIO"));
+	display.setTextSize(2);				
+	display.println(F(" CHANGLIER"));
+	display.display();
+	delay(4000);
+	
+	display.clearDisplay();
+	display.setTextSize(1);		
+	display.setCursor(40,0);		
+	display.println(F("version"));
+	display.setCursor(34,12);		
+	display.println(F(VERSION));
+	display.display();
+	delay(1000);
+}
+
+void service_servos(){
+	int	 val;
+	for (int i = 0; i < 6; i++) {
+		val  = servo_val_raw[i];
+		val = map(val ,0,255,0,180);
+		myservo[i].write(val);
+	}
+}
+//----------------------------------------------------------------------------------------
+//																				OSC
+
+void setup_osc() {
+
+	osc.begin(1234);
+    
+    // add callbacks...
+	osc.subscribe("/print", [](OscMessage& m){
+        Serial.print(packet_count); Serial.print(" ");
+ 		Serial.println();
+ 		display.clearDisplay();
+ 		display.setCursor(0,6);
+ 		display.setTextSize(2);				
+		display.print(packet_count);
+ 		display.display();
+     });
+     
+    osc.subscribe("/restart", [](OscMessage& m){
+         restart();
+     });
+    
+    osc.subscribe("/reset", [](OscMessage& m){
+         packet_count = 0;
+     });
+
+	osc.subscribe("/servo", [](OscMessage& m){
+        	digitalWrite(LED_BUILTIN,HIGH);
+            last_packet = millis();
+            packet_count++;
+            for (int i = 0; i < 6; i++) {
+				servo_val_raw[i] = m.arg<int>(i);
+            }
+    });
+}
 //========================================================================================
 //----------------------------------------------------------------------------------------
 //																				SETUP
@@ -169,9 +308,19 @@ void setup(){
          Serial.println("An Error has occurred while mounting SPIFFS");
          return;
     }
+    
+    pinMode(LED_BUILTIN,OUTPUT);
  
  	setup_read_preferences();
- 	setup_webserver();
+ 	setup_web_server();
+	setup_welcome_screen();
+	setup_osc();
+	
+	for (int i = 0; i < 6; i++) {
+		myservo[i].attach(servo_pins[i]);
+	}
+
+	t.every(2,service_servos);
 }
 
 
@@ -182,4 +331,8 @@ void setup(){
  
 void loop(){
     t.update();
+	osc.parse(); // should be called very often 
+    if (millis() - last_packet > 300) {
+    	digitalWrite(LED_BUILTIN,LOW);
+    }
 }

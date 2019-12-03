@@ -34,7 +34,7 @@
 				</ul>
 			</div>
 		</nav>
-		<div class="card" id="hostname">
+		<div class="card" id="hostname-card">
 			<div class="card-header">
 				Hostname 
 			</div>
@@ -49,7 +49,7 @@
 						</form>
 					</div>
 					<div class="col-sm text-right">
-						<a href="#" class="btn btn-primary">
+						<a href="#" class="btn btn-primary" onclick="setHostname()">
 							Save 
 						</a>
 					</div>
@@ -81,7 +81,22 @@
 	</div>
 	<script>
  
- 
+
+function setHostname() {
+   var val = document.getElementById("hostname").value //gets the oninput value
+   //document.getElementById('response').innerHTML = val //displays this value to the html page
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+      document.getElementById("response").innerHTML =
+      this.responseText;
+    }
+  };
+  xhttp.open("GET", "get?hostname="+val, true);
+  xhttp.send();
+
+}
+
 function getData() {
 alert("Hi");
   var xhttp = new XMLHttpRequest();
