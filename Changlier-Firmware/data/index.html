@@ -1,114 +1,68 @@
 <!DOCTYPE html>
 <html lang="en">
 	<head>
-		<meta http-equiv="content-type" content="text/html; charset=utf-8"> <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"> <link rel="stylesheet" href="src/bootstrap.min.css"> <script src="src/jquery-3.4.1.min.js"></script> <script src="src/bootstrap.bundle.min.js"></script> 
+		<meta http-equiv="content-type" content="text/html; charset=utf-8"> <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"> <link rel="stylesheet" href="src/bootstrap.min.css"> <script src="src/jquery-3.4.1.min.js"></script> <script src="src/bootstrap.bundle.min.js"></script> <link href="src/bootstrap-toggle.min.css" rel="stylesheet"> <script src="src/bootstrap-toggle.min.js"></script> 
 		<title>
-			Changlier - Configuration pour &quot;%HOSTNAME%.local&quot;
+			Changlier %HOSTNAME%.local
 		</title>
 	</head>
 	<body>
 		<div class="container-fluid">
-			<nav class="navbar navbar-expand-lg navbar-light bg-light">
-				<a class="navbar-brand" href="#">
-					Changlier v2.0 by [&nbsp;a&nbsp;n&nbsp;y&nbsp;m&nbsp;a&nbsp;] 
-				</a>
-				<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-					<span class="navbar-toggler-icon">
-					</span>
-				</button>
-				<div class="collapse navbar-collapse" id="navbarSupportedContent">
-					<ul class="navbar-nav mr-auto">
-						<li class="nav-item active">
-							<a class="nav-link" href="#">
-								Home 
-							<span class="sr-only">
-								(current) 
-							</span>
-						</a>
-					</li>
-					<li class="nav-item">
-						<a class="nav-link" href="#hostname">
-							Hostname 
-						</a>
-					</li>
-				</ul>
+			<div class="navbar navbar-expand-lg navbar-light bg-light align-baseline">
+					<h1 class="display-4 align-baseline">%HOSTNAME%.local</h1>  <span style="margin-left:4em;"> Changlier by Steve Octane Trio  </span>
+		</div>
+		<div class="card" id="s1_card">
+		<form action="/servos">
+			<div class="card-header">
+				Servos
 			</div>
-		</nav>
-		<div class="card" id="hostname-card">
+			<div class="card-body">
+				<div class="row">
+					
+				<table class="table">
+  <thead>
+    <tr>
+      <th scope="col">#</th>
+      <th scope="col">Controller</th>
+      <th scope="col">Minimum</th>
+      <th scope="col">Maximum</th>
+      <th scope="col">Detach Channel</th>
+    </tr>
+  </thead>
+  %SERVOS%
+  <tbody>
+</table>
+					
+					
+				</div>
+			</div>
+			<div class="card-footer text-right">
+  <input class="btn btn-primary"  type="submit" value="Save Servos">
+			</div>
+		</form>
+		</div>
+		<div class="card" id="host-card">
 			<div class="card-header">
 				Hostname 
 			</div>
 			<div class="card-body">
+			<form action="hostname">
 				<div class="row">
 					<div class="col-sm text-muted">
 						Name of the device on the network 
 					</div>
 					<div class="col-sm">
 						<form class="form-inline my-2 my-lg-0">
-							<input type="text" name="HostName" class="form-control" id="hostname" placeholder="hostname" value="%HOSTNAME%" required>.local 
+							<input type="text" name="hostname" class="form-control" id="hostname" placeholder="hostname" value="%HOSTNAME%" required>.local 
 						</form>
 					</div>
 					<div class="col-sm text-right">
-						<a href="#" class="btn btn-primary" onclick="setHostname()">
-							Save 
-						</a>
+  <input class="btn btn-primary"  type="submit" value="Change Hostname">
 					</div>
 				</div>
-			</div>
-		</div>
-		<div class="card" id="test">
-			<div class="card-header">
-				Test 
-			</div>
-			<div class="card-body">
-				<div class="row">
-					<div class="col-sm text-muted">
-						Ajax Test
-					</div>
-					<div class="col-sm">
-						<div class="alert alert-primary" id="response">
-						
-						</div>
-											</div>
-					<div class="col-sm text-right">
-						<a href="#" class="btn btn-primary" onclick="getData()">
-							Go 
-						</a>
-					</div>
-				</div>
+				</form>
 			</div>
 		</div>
 	</div>
-	<script>
- 
-
-function setHostname() {
-   var val = document.getElementById("hostname").value //gets the oninput value
-   //document.getElementById('response').innerHTML = val //displays this value to the html page
-  var xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      document.getElementById("response").innerHTML =
-      this.responseText;
-    }
-  };
-  xhttp.open("GET", "get?hostname="+val, true);
-  xhttp.send();
-
-}
-
-function getData() {
-alert("Hi");
-  var xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      document.getElementById("response").innerHTML =
-      this.responseText;
-    }
-  };
-  xhttp.open("GET", "readADC", true);
-  xhttp.send();
-}
-</script>
 </body>
 </html>
