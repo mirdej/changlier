@@ -28,8 +28,10 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <ESP32Servo.h>
+#include "AsyncUDP.h"
 
 OscWiFi osc;
+AsyncUDP udp;
 
 #include <LXESP32DMX.h>
 
@@ -264,7 +266,7 @@ void service_servos(){
 }
 //----------------------------------------------------------------------------------------
 //																				OSC
-
+/*
 void setup_osc() {
 
 	osc.begin(1234);
@@ -297,6 +299,7 @@ void setup_osc() {
             }
     });
 }
+*/
 //========================================================================================
 //----------------------------------------------------------------------------------------
 //																				SETUP
@@ -314,12 +317,31 @@ void setup(){
  	setup_read_preferences();
  	setup_web_server();
 	setup_welcome_screen();
-	setup_osc();
+//	setup_osc();
 	
 	for (int i = 0; i < 6; i++) {
 		myservo[i].attach(servo_pins[i]);
 	}
-
+   if(udp.listen(1234)) {
+        Serial.print("UDP Listening on IP: ");
+        Serial.println(WiFi.localIP());
+        udp.onPacket([](AsyncUDPPacket packet) {
+        	
+       //     Serial.print(millis()-last_packet);
+            last_packet = millis();
+    	digitalWrite(LED_BUILTIN,HIGH);
+       //     Serial.print(" ");
+            memcpy ( udp_packet, packet.data(), 6 );
+			for (int i = 0; i < 6; i++) {
+	            Serial.print(udp_packet[i],DEC);
+	            Serial.print(" ");
+				servo_val_raw[i] = udp_packet[i];
+	        }
+            Serial.println();
+            //reply to the client
+            packet.printf("Got %u bytes of data", packet.length());
+        });
+    }
 	t.every(2,service_servos);
 }
 
@@ -331,7 +353,7 @@ void setup(){
  
 void loop(){
     t.update();
-	osc.parse(); // should be called very often 
+	//osc.parse(); // should be called very often 
     if (millis() - last_packet > 300) {
     	digitalWrite(LED_BUILTIN,LOW);
     }
