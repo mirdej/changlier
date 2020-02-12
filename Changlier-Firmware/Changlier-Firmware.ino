@@ -25,7 +25,9 @@
 #include <SPIFFS.h>
 #include "ESPAsyncWebServer.h"
 #include <ESP32Servo.h>
-#include "AppleMidi.h"
+//#include "AppleMidi.h"
+#include <WiFiUdp.h>
+#include "CircularBuffer.h"
 
 //========================================================================================
 //----------------------------------------------------------------------------------------
@@ -39,6 +41,11 @@ const char 	BTN_UP 					= 1; // Up
 
 const char NUM_SERVOS				= 6;
 
+const char * udpAddress = "10.0.0.3";
+const int udpPort = 44444;
+WiFiUDP udp;
+
+
 //========================================================================================
 //----------------------------------------------------------------------------------------
 //																				GLOBALS
@@ -46,11 +53,14 @@ Preferences                             preferences;
 Timer									t;
 Servo 									myservo[NUM_SERVOS];
 
+CircularBuffer<byte, 100> queue;
+
+
 // .............................................................................WIFI STUFF 
 #define WIFI_TIMEOUT					4000
 String 									hostname;
 AsyncWebServer                          server(80);
-APPLEMIDI_CREATE_INSTANCE(WiFiUDP, AppleMIDI); // see definition in AppleMidi_Defs.h
+//APPLEMIDI_CREATE_INSTANCE(WiFiUDP, AppleMIDI); // see definition in AppleMidi_Defs.h
 
 char servo_val_raw[6];
 long last_packet;
@@ -268,51 +278,21 @@ void setup_web_server() {
 
 void service_servos(){
 	int	 val;
-	for (int i = 0; i < 6; i++) {
+	int i = 0;
+	if(!queue.isEmpty()) {
+		
+		val  = queue.pop();
+		val = map(val ,0,127,servo_minimum[i],servo_maximum[i]);
+		myservo[i].write(val);
+	}
+/*	for (int i = 0; i < 6; i++) {
 		val  = servo_val_raw[i];
 		val = map(val ,0,127,servo_minimum[i],servo_maximum[i]);
 		myservo[i].write(val);
 	}
-	
+	*/
 }
 
-
-// ====================================================================================
-// Event handlers for incoming MIDI messages
-// ====================================================================================
-
-void handle_cc(byte channel, byte controller, byte value) {
-	last_packet = millis();
-	Serial.print(channel, DEC);
-	Serial.print(" ");
-	Serial.print(controller, DEC);
-	Serial.print(" ");
-	Serial.print(value, DEC);
-	Serial.println(" ");
-	for (int i = 0; i< NUM_SERVOS; i++) {
-		if (controller == servo_address[i]) {
-			servo_val_raw[i] = value;
-		}
-	}
-	digitalWrite(LED_BUILTIN,HIGH);
-}
-
-// -----------------------------------------------------------------------------
-// rtpMIDI session. Device connected
-// -----------------------------------------------------------------------------
-void handle_connect(uint32_t ssrc, char* name) {
-  isConnected  = true;
-  Serial.print(F("Connected to session "));
-  Serial.println(name);
-}
-
-// -----------------------------------------------------------------------------
-// rtpMIDI session. Device disconnected
-// -----------------------------------------------------------------------------
-void handle_disconnect(uint32_t ssrc) {
-  isConnected  = false;
-  Serial.println(F("Disconnected"));
-}
 
 
 
@@ -334,15 +314,13 @@ void setup(){
  	setup_read_preferences();
  	setup_web_server();
 
-	AppleMIDI.begin("test");
-	AppleMIDI.OnConnected(handle_connect);
-	AppleMIDI.OnDisconnected(handle_disconnect);
-	AppleMIDI.OnReceiveControlChange(handle_cc);
-
 	for (int i = 0; i < 6; i++) {
 		myservo[i].attach(servo_pins[i]);
 	}
- 	t.every(50,service_servos);
+	
+	udp.begin(udpPort);
+
+ 	t.every(2,service_servos);
 }
 
 
@@ -352,10 +330,18 @@ void setup(){
 //																				loop
  
 void loop(){
-    t.update();
-    AppleMIDI.read();
+	uint8_t buffer[50];
 
-    if (millis() - last_packet > 500) {
+    t.update();
+
+	udp.parsePacket();
+  	char len = udp.read(buffer, 50);
+	if( len > 0 ){
+		queue.push(buffer[0]);
+		last_packet = millis();
+	}
+	
+    if (millis() - last_packet > 100) {
     	digitalWrite(LED_BUILTIN,LOW);
     }
 }
