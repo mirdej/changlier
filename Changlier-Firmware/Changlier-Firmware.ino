@@ -37,7 +37,8 @@ const char 	BTN_SEL 				= 3;	// Select button
 const char 	BTN_UP 					= 1; // Up
 
 const char NUM_SERVOS				= 6;
-const int LOG_SIZE					= 500;
+const int LOG_SIZE					= 200;
+const int BUF_SIZE					= 100;
 
 const char * udpAddress = "192.168.0.255";
 const int udpPort = 44444;
@@ -69,6 +70,9 @@ unsigned long servo_packet_interval_max;
 unsigned long last_servo_service;
 CircularBuffer<unsigned int, LOG_SIZE> 	servo_packet_interval_log;
 
+CircularBuffer<unsigned char, BUF_SIZE> 	buffer[NUM_SERVOS];
+
+
 long servo_service_interval = 4000; // microseconds
 boolean isConnected;
 
@@ -78,6 +82,9 @@ unsigned char servo_maximum[NUM_SERVOS];
 const char* 							ssid_perdu = "Changlier Perdu";
 String									ssid ="";
 String									pass="";
+
+boolean use_stream_buffer 	= true;
+boolean buffering			= true;
 //========================================================================================
 //----------------------------------------------------------------------------------------
 //																				IMPLEMENTATION
@@ -376,8 +383,28 @@ void setup_login_server() {
 //																				SERVOS
 
 void service_servos(){
+	if (use_stream_buffer) {
+		if (buffering) {
+			if (buffer[0].size() > BUF_SIZE / 2) {
+				buffering = false;
+			} else {
+				return;				// let buffer fill up to half its capacity
+			}
+		}
+
+		if (buffer[0].size()) {		// still something left in buffer
+			for (int i = 0; i < NUM_SERVOS; i++) {
+				servo_val_raw[i] = buffer[i].pop();
+			}
+			servo_service_interval = servo_packet_interval_avg; // tune read-out rate to fill rate of buffer
+			
+		} else {
+				buffering = true;	// buffer is empty restart buffering
+				return;
+		}	
+	}
+
 	int	 val;
-	int i = 0;
 	for (int i = 0; i < NUM_SERVOS; i++) {
 		if (servo_val_raw[i] < 128) {
 			if (servo_detach & (1 << i)) {
@@ -525,17 +552,26 @@ void setup(){
 	}
 
 	udp.begin(udpPort);
-	t.every(10,printraw);
+	//t.every(10,printraw);
+	t.every(100,monitor_buffer);
 }
 
-void printraw(){
-if(servo_val_raw[0] < 128) {
-for (int i = 0; i < 3; i++ ) {
-		Serial.print(servo_val_raw[i],DEC);
-		Serial.print(" ");
-	}
-	Serial.println();
+
+void monitor_buffer() {
+	Serial.print(servo_service_interval / 1000);
+	Serial.print(" ");
+	Serial.println(buffer[0].size());
 }
+
+
+void printraw(){
+	if(servo_val_raw[0] < 128) {
+		for (int i = 0; i < 3; i++ ) {
+			Serial.print(servo_val_raw[i],DEC);
+			Serial.print(" ");
+		}
+		Serial.println();
+	}
 }
 
 
@@ -544,32 +580,33 @@ for (int i = 0; i < 3; i++ ) {
 //																				loop
  
 void loop(){
-	uint8_t buffer[50];
+	uint8_t packet[50];
 
 	t.update();
 
 	udp.parsePacket();
-  	char len = udp.read(buffer, 50);
+  	char len = udp.read(packet, 50);
 	if( len > 0 ){
 		digitalWrite(LED_BUILTIN,HIGH);
 		
-		if (buffer[0] == 's') {					// servo message
+		if (packet[0] == 's') {					// servo message
 			calc_stats();
-	//		Serial.print(len,DEC);Serial.print(" Bytes received: ");
 			int numbytes = len - 1;
 			if (numbytes > NUM_SERVOS) numbytes = NUM_SERVOS;		// prevent reading garbage when receiving less bytes
 
 			for (int i = 0; i < numbytes; i++) {
-				if (buffer[i + 1]) servo_val_raw[i] = buffer[i + 1] - 1;
-//				Serial.print(servo_val_raw[i],DEC);
-//				Serial.print(" ");
+				if (packet[i + 1]) {
+					if (use_stream_buffer) {
+						buffer[i].unshift(packet[i + 1] - 1);
+					} else {
+						servo_val_raw[i] = packet[i + 1] - 1;
+					}
+				}
 			}
 			
-			// see if we have a servo-detach-byte
 			if (len >= 8) {
-				servo_detach = buffer[7]-1;
+				servo_detach = packet[7]-1;
 			}
-//			Serial.println(servo_detach,DEC);
 		}
 	}
 	
