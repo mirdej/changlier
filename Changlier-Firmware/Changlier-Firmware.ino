@@ -53,7 +53,7 @@ String 									hostname;
 AsyncWebServer                          server(80);
 WiFiUDP 								udp;
 
-
+char servo_detach;
 char servo_val_raw[NUM_SERVOS];
 long last_packet;
 long servo_packet_interval;
@@ -286,9 +286,21 @@ void service_servos(){
 	int	 val;
 	int i = 0;
 	for (int i = 0; i < NUM_SERVOS; i++) {
-		val  = servo_val_raw[i];
-		val = map(val ,0,127,servo_minimum[i],servo_maximum[i]);
-		myservo[i].write(val);
+		if (servo_detach & (1 << i)) {
+			if (myservo[i].attached()) {
+				myservo[i].detach();
+				Serial.print("Servo "); Serial.print(i + 1);Serial.println(" detached");
+			}
+		} else {
+			if (!myservo[i].attached()) {
+					myservo[i].attach(servo_pins[i]);
+					Serial.print("Servo "); Serial.print(i + 1);Serial.println(" attached");
+			}
+			val  = servo_val_raw[i];
+			val = map(val ,0,127,servo_minimum[i],servo_maximum[i]);
+			myservo[i].write(val);
+		}
+		
 	}
 	last_servo_service = micros();
 }
@@ -313,11 +325,6 @@ void setup(){
 
 	read_preferences();
  	setup_web_server();
-
-	for (int i = 0; i < NUM_SERVOS; i++) {
-		myservo[i].attach(servo_pins[i]);
-	}
-	
 	udp.begin(udpPort);
 }
 
@@ -366,6 +373,11 @@ void loop(){
 
 			for (int i = 0; i < numbytes; i++) {
 				servo_val_raw[i] = buffer[i + 1] - 1;
+			}
+			
+			// see if we have a servo-detach-byte
+			if (len >= 8) {
+				servo_detach = buffer[7]-1;
 			}
 		}
 	}
