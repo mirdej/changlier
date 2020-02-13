@@ -18,7 +18,8 @@
 #include <SPIFFS.h>
 #include "ESPAsyncWebServer.h"
 #include <ESP32Servo.h>
-#include "AsyncUDP.h"
+#include <Artnet.h>
+
 
 #include <WiFiAP.h>
 #include "Timer.h"
@@ -58,7 +59,9 @@ Timer 									t;
 
 String 									hostname;
 AsyncWebServer                          server(80);
-AsyncUDP 								udp;
+ArtnetReceiver 							artnet;
+uint32_t universe1 = 1;
+
 int 									network_count;
 
 unsigned char servo_val_raw[NUM_SERVOS];
@@ -74,8 +77,6 @@ unsigned long last_buffer_service;
 
 CircularBuffer<unsigned int, LOG_SIZE> 	servo_packet_interval_log;
 
-CircularBuffer<unsigned char, BUF_SIZE> 	buffer[NUM_SERVOS];
-
 
 long servo_service_interval = 2000; // microseconds
 boolean isConnected;
@@ -87,8 +88,7 @@ const char* 							ssid_perdu = "Changlier Perdu";
 String									ssid ="";
 String									pass="";
 
-boolean use_stream_buffer 	= false;
-boolean buffering			= true;
+
 //========================================================================================
 //----------------------------------------------------------------------------------------
 //																				IMPLEMENTATION
@@ -242,6 +242,11 @@ void setup_web_server() {
 		request->send(SPIFFS, "/index.html",  String(), false, processor);
 	});
 
+
+	server.on("/ip", HTTP_GET, [](AsyncWebServerRequest *request){
+		request->send(200, "text/plain",WiFi.localIP().toString());
+	});
+
 	server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request){
 		request->send(SPIFFS, "/log.html",  String(), false, processor);
 	});
@@ -386,30 +391,6 @@ void setup_login_server() {
 //----------------------------------------------------------------------------------------
 //																				SERVOS
 
-void service_buffer(){
-	last_buffer_service = micros();
-
-	if (use_stream_buffer) {
-		if (buffering) {
-			if (buffer[0].size() > BUF_SIZE / 5 * 4) {
-				buffering = false;
-			} else {
-				return;				// let buffer fill up to half its capacity
-			}
-		}
-
-		if (buffer[0].size()) {		// still something left in buffer
-			for (int i = 0; i < NUM_SERVOS; i++) {
-				servo_val_raw[i] = buffer[i].pop();
-			}
-			
-		} else {
-				buffering = true;	// buffer is empty restart buffering
-				return;
-		}	
-	}
-}
-
 void service_servos(){
 	last_servo_service = micros();
 	int	 target_val;
@@ -418,28 +399,13 @@ void service_servos(){
 			if (servo_detach & (1 << i)) {
 				if (myservo[i].attached()) {
 					myservo[i].detach();
-			//		Serial.print("Servo "); Serial.print(i + 1);Serial.println(" detached");
 				}
 			} else {
 					if (!myservo[i].attached()) {
 							myservo[i].attach(servo_pins[i]);
-			//				Serial.print("Servo "); Serial.print(i + 1);Serial.println(" attached");
 					} 
 					target_val  = servo_val_raw[i];
 					target_val = map(target_val ,0,127,servo_minimum[i],servo_maximum[i]);
-					/*
-					int actual_val = myservo[i].read();
-					int diff = abs(actual_val - target_val);
-					
-					if (diff > SERVO_MAX_STEP) {
-						if (target_val > actual_val) target_val = actual_val + SERVO_MAX_STEP;
-						else target_val = actual_val - SERVO_MAX_STEP;
-					} else {
-						if (target_val > actual_val) target_val = actual_val + 1;
-						else if (target_val < actual_val) target_val = actual_val - 1;	
-						else target_val = actual_val;					
-					}
-					*/
 					myservo[i].write(target_val);
 				}	
 			}	
@@ -518,40 +484,24 @@ void setup(){
   	if (WiFi.status() == WL_CONNECTED) {
   	    Serial.print("Wifi connected. IP: ");
         Serial.println(WiFi.localIP());
+        
 		setup_web_server();
 		
 		for (int i = 0; i< NUM_SERVOS; i++) {
 			myservo[i].attach(servo_pins[i]);
 		}
 		
-		if(udp.listen(udpPort)) {
-			Serial.print("UDP Listening on IP: ");
-			Serial.println(WiFi.localIP());
-			udp.onPacket([](AsyncUDPPacket packet) {
-				digitalWrite(LED_BUILTIN,HIGH);
-		
-				if (packet.data()[0] == 's') {					// servo message
-					calc_stats();
-					int numbytes = packet.length() - 1;
-					if (numbytes > NUM_SERVOS) numbytes = NUM_SERVOS;		// prevent reading garbage when receiving less bytes
+		artnet.begin();
 
-					for (int i = 0; i < numbytes; i++) {
-						if (packet.data()[i + 1]) {
-							if (use_stream_buffer) {
-								buffer[i].unshift(packet.data()[i + 1] - 1);
-							} else {
-								servo_val_raw[i] = packet.data()[i + 1] - 1;
-							}
-						}
-					}
-			
-					if (packet.length() >= 8) {
-						servo_detach = packet.data()[7]-1;
-					}
-				}
-				packet.printf("Thx!");
-			});
-    }
+		artnet.subscribe(universe1, [&](uint8_t* data, uint16_t size) {
+			digitalWrite(LED_BUILTIN,HIGH);
+			calc_stats();
+			for (int i = 0; i < NUM_SERVOS; i++) {
+				servo_val_raw[i] = data[i];
+			}
+			servo_detach = data[6];
+
+    	});
 		
 	} else {
 		WiFi.mode(WIFI_STA);
@@ -600,16 +550,9 @@ void setup(){
 	
 	}
 
-	//t.every(10,printraw);
-	//t.every(100,monitor_buffer);
+	//t.every(100,printraw);
 }
 
-
-void monitor_buffer() {
-	Serial.print(servo_packet_interval_avg / 1000);
-	Serial.print(" ");
-	Serial.println(buffer[0].size());
-}
 
 
 void printraw(){
@@ -630,10 +573,9 @@ void printraw(){
 void loop(){
 
 	t.update();
-	
+    artnet.parse(); // check if artnet packet has come and execute callback
+
     if ((micros() - last_packet)		 	> 200000) {					 	digitalWrite(LED_BUILTIN,LOW);}
 	if ((micros() - last_servo_service) 	> servo_service_interval) { 	service_servos(); }
-	if ((micros() - last_buffer_service) 	> servo_packet_interval_avg) { 	service_buffer(); }
-
 }
 
