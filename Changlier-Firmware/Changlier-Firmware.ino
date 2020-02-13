@@ -18,7 +18,7 @@
 #include <SPIFFS.h>
 #include "ESPAsyncWebServer.h"
 #include <ESP32Servo.h>
-#include <WiFiUdp.h>
+#include "AsyncUDP.h"
 
 #include <WiFiAP.h>
 #include "Timer.h"
@@ -40,6 +40,8 @@ const char NUM_SERVOS				= 6;
 const int LOG_SIZE					= 200;
 const int BUF_SIZE					= 100;
 
+const int SERVO_MAX_STEP			= 2;
+
 const char * udpAddress = "192.168.0.255";
 const int udpPort = 44444;
 const int WIFI_TIMEOUT		=			8000;
@@ -56,7 +58,7 @@ Timer 									t;
 
 String 									hostname;
 AsyncWebServer                          server(80);
-WiFiUDP 								udp;
+AsyncUDP 								udp;
 int 									network_count;
 
 unsigned char servo_val_raw[NUM_SERVOS];
@@ -68,12 +70,14 @@ unsigned long servo_packet_interval_avg;
 unsigned long servo_packet_interval_min;
 unsigned long servo_packet_interval_max;
 unsigned long last_servo_service;
+unsigned long last_buffer_service;
+
 CircularBuffer<unsigned int, LOG_SIZE> 	servo_packet_interval_log;
 
 CircularBuffer<unsigned char, BUF_SIZE> 	buffer[NUM_SERVOS];
 
 
-long servo_service_interval = 4000; // microseconds
+long servo_service_interval = 2000; // microseconds
 boolean isConnected;
 
 unsigned char servo_minimum[NUM_SERVOS];
@@ -83,7 +87,7 @@ const char* 							ssid_perdu = "Changlier Perdu";
 String									ssid ="";
 String									pass="";
 
-boolean use_stream_buffer 	= true;
+boolean use_stream_buffer 	= false;
 boolean buffering			= true;
 //========================================================================================
 //----------------------------------------------------------------------------------------
@@ -382,10 +386,12 @@ void setup_login_server() {
 //----------------------------------------------------------------------------------------
 //																				SERVOS
 
-void service_servos(){
+void service_buffer(){
+	last_buffer_service = micros();
+
 	if (use_stream_buffer) {
 		if (buffering) {
-			if (buffer[0].size() > BUF_SIZE / 2) {
+			if (buffer[0].size() > BUF_SIZE / 5 * 4) {
 				buffering = false;
 			} else {
 				return;				// let buffer fill up to half its capacity
@@ -396,34 +402,48 @@ void service_servos(){
 			for (int i = 0; i < NUM_SERVOS; i++) {
 				servo_val_raw[i] = buffer[i].pop();
 			}
-			servo_service_interval = servo_packet_interval_avg; // tune read-out rate to fill rate of buffer
 			
 		} else {
 				buffering = true;	// buffer is empty restart buffering
 				return;
 		}	
 	}
+}
 
-	int	 val;
+void service_servos(){
+	last_servo_service = micros();
+	int	 target_val;
 	for (int i = 0; i < NUM_SERVOS; i++) {
 		if (servo_val_raw[i] < 128) {
 			if (servo_detach & (1 << i)) {
 				if (myservo[i].attached()) {
 					myservo[i].detach();
-					Serial.print("Servo "); Serial.print(i + 1);Serial.println(" detached");
+			//		Serial.print("Servo "); Serial.print(i + 1);Serial.println(" detached");
 				}
 			} else {
 					if (!myservo[i].attached()) {
 							myservo[i].attach(servo_pins[i]);
-							Serial.print("Servo "); Serial.print(i + 1);Serial.println(" attached");
+			//				Serial.print("Servo "); Serial.print(i + 1);Serial.println(" attached");
 					} 
-					val  = servo_val_raw[i];
-					val = map(val ,0,127,servo_minimum[i],servo_maximum[i]);
-					myservo[i].write(val);
+					target_val  = servo_val_raw[i];
+					target_val = map(target_val ,0,127,servo_minimum[i],servo_maximum[i]);
+					/*
+					int actual_val = myservo[i].read();
+					int diff = abs(actual_val - target_val);
+					
+					if (diff > SERVO_MAX_STEP) {
+						if (target_val > actual_val) target_val = actual_val + SERVO_MAX_STEP;
+						else target_val = actual_val - SERVO_MAX_STEP;
+					} else {
+						if (target_val > actual_val) target_val = actual_val + 1;
+						else if (target_val < actual_val) target_val = actual_val - 1;	
+						else target_val = actual_val;					
+					}
+					*/
+					myservo[i].write(target_val);
 				}	
 			}	
 	}
-	last_servo_service = micros();
 }
 
 //----------------------------------------------------------------------------------------
@@ -444,7 +464,7 @@ void calc_stats() {
 	if (servo_packet_interval_avg == 0) {
 		servo_packet_interval_avg = servo_packet_interval;
 	} else {
-		servo_packet_interval_avg = (15 * servo_packet_interval_avg + servo_packet_interval) / 16;
+		servo_packet_interval_avg = (31 * servo_packet_interval_avg + servo_packet_interval) / 32;
 	}
 			
 	if (servo_packet_interval_min == 0) servo_packet_interval_min = servo_packet_interval;
@@ -504,6 +524,35 @@ void setup(){
 			myservo[i].attach(servo_pins[i]);
 		}
 		
+		if(udp.listen(udpPort)) {
+			Serial.print("UDP Listening on IP: ");
+			Serial.println(WiFi.localIP());
+			udp.onPacket([](AsyncUDPPacket packet) {
+				digitalWrite(LED_BUILTIN,HIGH);
+		
+				if (packet.data()[0] == 's') {					// servo message
+					calc_stats();
+					int numbytes = packet.length() - 1;
+					if (numbytes > NUM_SERVOS) numbytes = NUM_SERVOS;		// prevent reading garbage when receiving less bytes
+
+					for (int i = 0; i < numbytes; i++) {
+						if (packet.data()[i + 1]) {
+							if (use_stream_buffer) {
+								buffer[i].unshift(packet.data()[i + 1] - 1);
+							} else {
+								servo_val_raw[i] = packet.data()[i + 1] - 1;
+							}
+						}
+					}
+			
+					if (packet.length() >= 8) {
+						servo_detach = packet.data()[7]-1;
+					}
+				}
+				packet.printf("Thx!");
+			});
+    }
+		
 	} else {
 		WiFi.mode(WIFI_STA);
 		WiFi.disconnect();
@@ -551,14 +600,13 @@ void setup(){
 	
 	}
 
-	udp.begin(udpPort);
 	//t.every(10,printraw);
-	t.every(100,monitor_buffer);
+	//t.every(100,monitor_buffer);
 }
 
 
 void monitor_buffer() {
-	Serial.print(servo_service_interval / 1000);
+	Serial.print(servo_packet_interval_avg / 1000);
 	Serial.print(" ");
 	Serial.println(buffer[0].size());
 }
@@ -580,38 +628,12 @@ void printraw(){
 //																				loop
  
 void loop(){
-	uint8_t packet[50];
 
 	t.update();
-
-	udp.parsePacket();
-  	char len = udp.read(packet, 50);
-	if( len > 0 ){
-		digitalWrite(LED_BUILTIN,HIGH);
-		
-		if (packet[0] == 's') {					// servo message
-			calc_stats();
-			int numbytes = len - 1;
-			if (numbytes > NUM_SERVOS) numbytes = NUM_SERVOS;		// prevent reading garbage when receiving less bytes
-
-			for (int i = 0; i < numbytes; i++) {
-				if (packet[i + 1]) {
-					if (use_stream_buffer) {
-						buffer[i].unshift(packet[i + 1] - 1);
-					} else {
-						servo_val_raw[i] = packet[i + 1] - 1;
-					}
-				}
-			}
-			
-			if (len >= 8) {
-				servo_detach = packet[7]-1;
-			}
-		}
-	}
 	
     if ((micros() - last_packet)		 	> 200000) {					 	digitalWrite(LED_BUILTIN,LOW);}
 	if ((micros() - last_servo_service) 	> servo_service_interval) { 	service_servos(); }
+	if ((micros() - last_buffer_service) 	> servo_packet_interval_avg) { 	service_buffer(); }
 
 }
 
