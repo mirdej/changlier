@@ -18,13 +18,13 @@
 #include <SPIFFS.h>
 #include "ESPAsyncWebServer.h"
 #include <ESP32Servo.h>
-#include <Artnet.h>
-
+#include <BLEDevice.h>
+#include <BLEUtils.h>
+#include <BLEServer.h>
+#include <BLE2902.h>
 
 #include <WiFiAP.h>
 #include "Timer.h"
-
-#include "CircularBuffer.h"
 
 //========================================================================================
 //----------------------------------------------------------------------------------------
@@ -43,9 +43,11 @@ const int BUF_SIZE					= 100;
 
 const int SERVO_MAX_STEP			= 2;
 
-const char * udpAddress = "192.168.0.255";
-const int udpPort = 44444;
+
 const int WIFI_TIMEOUT		=			8000;
+
+#define SERVICE_UUID        "03b80e5a-ede8-4b33-a751-6ce34ec4c700"
+#define CHARACTERISTIC_UUID "7772e5db-3868-4112-a1a9-f2669d106bf3"
 
 
 //========================================================================================
@@ -59,8 +61,8 @@ Timer 									t;
 
 String 									hostname;
 AsyncWebServer                          server(80);
-ArtnetReceiver 							artnet;
-uint32_t universe1 = 1;
+
+
 
 int 									network_count;
 
@@ -75,7 +77,9 @@ unsigned long servo_packet_interval_max;
 unsigned long last_servo_service;
 unsigned long last_buffer_service;
 
-CircularBuffer<unsigned int, LOG_SIZE> 	servo_packet_interval_log;
+
+BLECharacteristic *pCharacteristic;
+bool deviceConnected = false;
 
 
 long servo_service_interval = 2000; // microseconds
@@ -93,6 +97,37 @@ String									pass="";
 //----------------------------------------------------------------------------------------
 //																				IMPLEMENTATION
 
+
+class MyServerCallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+      deviceConnected = true;
+    };
+
+    void onDisconnect(BLEServer* pServer) {
+      deviceConnected = false;
+    }
+};
+
+class MyCallbacks: public BLECharacteristicCallbacks {
+
+    void onWrite(BLECharacteristic *pCharacteristic) {
+      std::string rxValue = pCharacteristic->getValue();
+
+      if (rxValue.length() > 0) {
+	      last_packet = micros();
+		if ((rxValue[2] >> 4 ) == 0x0B) {
+			int idx = rxValue[3]-1;
+			char val = rxValue[4];
+			if (val > 127) val = 127;
+			
+			if (idx >= 0 && idx < NUM_SERVOS) {
+				servo_val_raw[idx] = val;
+			} else if (idx == 6) servo_detach = val;
+		}
+      }
+    }
+};
+
 //----------------------------------------------------------------------------------------
 //																				Preferences
 
@@ -101,13 +136,13 @@ void read_preferences() {
 	
 	ssid = preferences.getString("ssid");
 	pass = preferences.getString("pass");
-    Serial.print("SSID: "); Serial.println(ssid);
+    //Serial.print(("SSID: "); //Serial.print(ln(ssid);
 
     hostname = preferences.getString("hostname");
     if (hostname == String()) { hostname = "bebe_changlier"; }
     
    if(preferences.getBytesLength("minima") != NUM_SERVOS) {
-    	Serial.println(F("Generating default minima + maxima"));
+    	//Serial.print(ln(F("Generating default minima + maxima"));
     	for (int i = 0; i < NUM_SERVOS; i++) {
     		servo_minimum[i] = 0;
     		servo_maximum[i] = 180;
@@ -127,32 +162,32 @@ void read_preferences() {
 //																			file functions
 
  String readFile(fs::FS &fs, const char * path){
-  Serial.printf("Reading file: %s\r\n", path);
+  //Serial.print(f("Reading file: %s\r\n", path);
   File file = fs.open(path, "r");
   if(!file || file.isDirectory()){
-    Serial.println("- empty file or failed to open file");
+    //Serial.print(ln("- empty file or failed to open file");
     return String();
   }
-  Serial.println("- read from file:");
+  //Serial.print(ln("- read from file:");
   String fileContent;
   while(file.available()){
     fileContent+=String((char)file.read());
   }
-  Serial.println(fileContent);
+  //Serial.print(ln(fileContent);
   return fileContent;
 }
 
 void writeFile(fs::FS &fs, const char * path, const char * message){
-  Serial.printf("Writing file: %s\r\n", path);
+  //Serial.print(f("Writing file: %s\r\n", path);
   File file = fs.open(path, "w");
   if(!file){
-    Serial.println("- failed to open file for writing");
+    //Serial.print(ln("- failed to open file for writing");
     return;
   }
   if(file.print(message)){
-    Serial.println("- file written");
+    //Serial.print(ln("- file written");
   } else {
-    Serial.println("- write failed");
+    //Serial.print(ln("- write failed");
   }
 }
 
@@ -177,22 +212,7 @@ String processor(const String& var){
  }
 
 	
- if(var == "LOG"){
- 		String table = " ['Packet','Time'],";
-		// the following ensures using the right type for the index variable
-		using index_t = decltype(servo_packet_interval_log)::index_t;
-		float ms;
-		for (index_t i = 0; i < servo_packet_interval_log.size(); i++) {
-			ms = (float)servo_packet_interval_log[i]/1000.;
-			if (ms > 500.) ms = 500.;
-			table +="[" + String(i) + ",";
-			table += String(ms,2);
-			table += "]";
-			if ( i < servo_packet_interval_log.size()-1) 			table += ",";
-		}
-        return table;
- }
-
+ 
  if(var == "SERVOS"){
  		String table = "";
  		
@@ -231,12 +251,12 @@ String processor(const String& var){
 void setup_web_server() {
 
 	if (!MDNS.begin(hostname.c_str())) {
-		 Serial.println("Error setting up MDNS responder!");
+		 //Serial.print(ln("Error setting up MDNS responder!");
 	}
-	Serial.println("mDNS responder started");
+	//Serial.print(ln("mDNS responder started");
 
-    Serial.print("Hostname: ");
-    Serial.println(hostname);
+    //Serial.print(("Hostname: ");
+    //Serial.print(ln(hostname);
 
 	server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
 		request->send(SPIFFS, "/index.html",  String(), false, processor);
@@ -315,8 +335,8 @@ void setup_web_server() {
 		
 	   if (request->hasParam("hostname")) {
 			inputMessage = request->getParam("hostname")->value();
-			Serial.print("Change Hostname to: ");
-			Serial.println(inputMessage);
+			//Serial.print(("Change Hostname to: ");
+			//Serial.print(ln(inputMessage);
 			if (inputMessage.length() > 2) {
 				hostname = inputMessage;
 				preferences.begin("changlier", false);
@@ -359,18 +379,18 @@ void setup_login_server() {
             
             if (request->hasParam("pass")) {
 				inputMessage = request->getParam("pass")->value();
-				Serial.print("Password: ");
-				Serial.println(inputMessage);
+				//Serial.print(("Password: ");
+				//Serial.print(ln(inputMessage);
 			}
 			
 			int net;
 			for(int i=0;i<params;i++){
               AsyncWebParameter* p = request->getParam(i);
               if (p->value().toInt() == 1) {
-				Serial.print("Network: ");
-				Serial.println(p->name());
+				//Serial.print(("Network: ");
+				//Serial.print(ln(p->name());
 				net = p->name().substring(1).toInt();
-				Serial.println(WiFi.SSID(net));
+				//Serial.print(ln(WiFi.SSID(net));
               }
               
 			}
@@ -425,8 +445,6 @@ void calc_stats() {
 	servo_packet_interval = micros() - last_packet;
 	last_packet = micros();
 
-	servo_packet_interval_log.push(servo_packet_interval);
-
 	if (servo_packet_interval_avg == 0) {
 		servo_packet_interval_avg = servo_packet_interval;
 	} else {
@@ -458,7 +476,7 @@ void setup(){
     Serial.begin(115200);
  
     if(!SPIFFS.begin()){
-         Serial.println("An Error has occurred while mounting SPIFFS");
+         //Serial.print(ln("An Error has occurred while mounting SPIFFS");
          return;
     }
     
@@ -471,6 +489,40 @@ void setup(){
 	}
 	read_preferences();
 	
+	
+	  BLEDevice::init(hostname.c_str());
+    
+  // Create the BLE Server
+  BLEServer *pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new MyServerCallbacks());
+
+  // Create the BLE Service
+  BLEService *pService = pServer->createService(BLEUUID(SERVICE_UUID));
+
+  // Create a BLE Characteristic
+  pCharacteristic = pService->createCharacteristic(
+    BLEUUID(CHARACTERISTIC_UUID),
+    BLECharacteristic::PROPERTY_READ   |
+    BLECharacteristic::PROPERTY_WRITE  |
+    BLECharacteristic::PROPERTY_NOTIFY |
+    BLECharacteristic::PROPERTY_WRITE_NR
+  );
+
+  // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
+  // Create a BLE Descriptor
+  pCharacteristic->addDescriptor(new BLE2902());
+	pCharacteristic->setCallbacks(new MyCallbacks());
+
+
+  // Start the service
+  pService->start();
+
+  // Start advertising
+  BLEAdvertising *pAdvertising = pServer->getAdvertising();
+  pAdvertising->addServiceUUID(pService->getUUID());
+  pAdvertising->start();
+	
+	
 	if (ssid != String()) {	
 		// try to connect to stored network
 		WiFi.begin(ssid.c_str(), pass.c_str());
@@ -482,65 +534,54 @@ void setup(){
 	}
 
   	if (WiFi.status() == WL_CONNECTED) {
-  	    Serial.print("Wifi connected. IP: ");
-        Serial.println(WiFi.localIP());
+  	    //Serial.print(("Wifi connected. IP: ");
+        //Serial.print(ln(WiFi.localIP());
         
 		setup_web_server();
 		
 		for (int i = 0; i< NUM_SERVOS; i++) {
 			myservo[i].attach(servo_pins[i]);
 		}
-		
-		artnet.begin();
 
-		artnet.subscribe(universe1, [&](uint8_t* data, uint16_t size) {
-			digitalWrite(LED_BUILTIN,HIGH);
-			calc_stats();
-			for (int i = 0; i < NUM_SERVOS; i++) {
-				servo_val_raw[i] = data[i];
-			}
-			servo_detach = data[6];
-
-    	});
 		
 	} else {
 		WiFi.mode(WIFI_STA);
 		WiFi.disconnect();
 
-		Serial.println("scan start");
+		//Serial.print(ln("scan start");
 		// WiFi.scanNetworks will return the number of networks found
 		int n = WiFi.scanNetworks();
 		network_count = n;
-		Serial.println("scan done");
+		//Serial.print(ln("scan done");
 	
 		// You can remove the password parameter if you want the AP to be open.
 		WiFi.softAP(ssid_perdu);
 		IPAddress myIP = WiFi.softAPIP();
-		Serial.print("AP IP address: ");
-		Serial.println(myIP);
+		//Serial.print(("AP IP address: ");
+		//Serial.print(ln(myIP);
 	
 		if (!MDNS.begin("changlier")) {
-			Serial.println("Error setting up MDNS responder!");
+			//Serial.print(ln("Error setting up MDNS responder!");
 		}
-		Serial.println("mDNS responder started");
+		//Serial.print(ln("mDNS responder started");
 
-	    Serial.print("Hostname: changlier");
+	    //Serial.print(("Hostname: changlier");
 
 	
 		if (n == 0) {
-			Serial.println("no networks found");
+			//Serial.print(ln("no networks found");
 		} else {
-			Serial.print(n);
-			Serial.println(" networks found");
+			//Serial.print((n);
+			//Serial.print(ln(" networks found");
 			for (int i = 0; i < n; ++i) {
 				// Print SSID and RSSI for each network found
-				Serial.print(i + 1);
-				Serial.print(": ");
-				Serial.print(WiFi.SSID(i));
-				Serial.print(" (");
-				Serial.print(WiFi.RSSI(i));
-				Serial.print(")");
-				Serial.println((WiFi.encryptionType(i) == WIFI_AUTH_OPEN)?" ":"*");
+				//Serial.print((i + 1);
+				//Serial.print((": ");
+				//Serial.print((WiFi.SSID(i));
+				//Serial.print((" (");
+				//Serial.print((WiFi.RSSI(i));
+				//Serial.print((")");
+				//Serial.print(ln((WiFi.encryptionType(i) == WIFI_AUTH_OPEN)?" ":"*");
 				delay(10);
 			}
 		}
@@ -550,6 +591,11 @@ void setup(){
 	
 	}
 
+
+
+
+
+
 	//t.every(100,printraw);
 }
 
@@ -558,10 +604,10 @@ void setup(){
 void printraw(){
 	if(servo_val_raw[0] < 128) {
 		for (int i = 0; i < 3; i++ ) {
-			Serial.print(servo_val_raw[i],DEC);
-			Serial.print(" ");
+			//Serial.print((servo_val_raw[i],DEC);
+			//Serial.print((" ");
 		}
-		Serial.println();
+		//Serial.print(ln();
 	}
 }
 
@@ -573,7 +619,6 @@ void printraw(){
 void loop(){
 
 	t.update();
-    artnet.parse(); // check if artnet packet has come and execute callback
 
     if ((micros() - last_packet)		 	> 200000) {					 	digitalWrite(LED_BUILTIN,LOW);}
 	if ((micros() - last_servo_service) 	> servo_service_interval) { 	service_servos(); }
