@@ -117,6 +117,27 @@ void send_servo_data(int channel) {
 }
 
 
+void led_control(char idx, char val) {
+	if (idx < 7 ) return;
+	if (idx == 7) { 					// channel 8:			global hue
+		for (int i = 0; i < NUM_PIXELS; i++) {
+			colors[i].hue = 2 * val;
+		}
+	} else if (idx == 8) { 					// channel 9:			global saturation
+		for (int i = 0; i < NUM_PIXELS; i++) {
+			colors[i].saturation = 2 * val;
+		}
+	} else if (idx == 9) { 					//channel 10:  			global brightness
+		for (int i = 0; i < NUM_PIXELS; i++) {
+			colors[i].value = 2 * val;
+		}					
+	} else {								//channels 11-16:		individual brightness
+		if ((idx - 10) < NUM_PIXELS) {
+			colors[(idx - 10)].value = 2 * val;
+		} 
+	}
+}
+
 
 void set_limits(char channel) {
 	if (channel < NUM_SERVOS) {
@@ -163,25 +184,27 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 				} else if (idx == 6) { 
 					servo_detach = val;					// channel 7: 			global servo detach 
 					if (val > 64) servo_detach = 0xFF;
-				} else if (idx == 7) { 					// channel 8:			global hue
-					for (int i = 0; i < NUM_PIXELS; i++) {
-						colors[i].hue = 2 * val;
-					}
-				} else if (idx == 8) { 					// channel 9:			global saturation
-					for (int i = 0; i < NUM_PIXELS; i++) {
-						colors[i].saturation = 2 * val;
-					}
-				} else if (idx == 9) { 					//channel 10:  			global brightness
-					for (int i = 0; i < NUM_PIXELS; i++) {
-						colors[i].value = 2 * val;
-					}					
-				} else {								//channels 11-16:		individual brightness
-					if ((idx - 10) < NUM_PIXELS) {
-						colors[(idx - 10)].value = 2 * val;
-					} 
+				} else {
+					led_control(idx,val);
 				}
 			}
 		} 
+		
+//------------------------------						// Note ON
+		if ((rxValue[2] >> 4 ) == 0x09) {				
+			int idx = rxValue[3]-1;
+			char val = rxValue[4];
+			if (val > 127) val = 127;
+			if (idx >= 10 )led_control(idx,val);
+		} 
+//------------------------------						// Note OFF
+		if ((rxValue[2] >> 4 ) == 0x08) {				
+			int idx = rxValue[3]-1;
+			char val = rxValue[4];
+			if (val > 127) val = 127;
+			if (idx >= 10 )led_control(idx,0);
+		} 
+
 //------------------------------					// SYSEX	
 		if (rxValue[2] == 0xF0) {					
 			if (rxValue[3] == 0x7D) {				// Homebrew Device
@@ -423,7 +446,6 @@ void setup(){
  
 void loop(){
 	t.update();
-	
     if ((millis() - last_packet) > 200) {digitalWrite(LED_BUILTIN,LOW);}
 }
 
