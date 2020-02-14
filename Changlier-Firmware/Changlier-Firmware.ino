@@ -23,6 +23,17 @@
 //----------------------------------------------------------------------------------------
 //																				DEFINES
 
+
+#define SYSEX_NOP				0
+#define SYSEX_NAMECHANGE		22
+#define SYSEX_SET_MINIMUM		25
+#define SYSEX_SET_MAXIMUM		26
+#define SYSEX_CLEAR_MIN_MAX		28
+#define SYSEX_INVERT_MIN_MAX	29
+
+#define SYSEX_SEND_SERVODATA	30
+
+#define SYSEX_SERVODATA			50
 // .............................................................................Pins 
 
 
@@ -68,7 +79,56 @@ unsigned char servo_maximum[NUM_SERVOS];
 //========================================================================================
 //----------------------------------------------------------------------------------------
 //																				IMPLEMENTATION
+void send_servo_data(int channel) {
+	const int send_servo_data_reply_length = 15;
+	uint8_t packet[send_servo_data_reply_length];
+	
+//	Serial.print("Send: ");
+	
+	packet[0] = 0x80;  // header
+	packet[1] = 0x80;  // timestamp, not implemented 
+	packet[2] = 0xF0;  // SYSEX
+	packet[3] = 0x7D;  // Homebrew Device
+	
+	packet[4] = SYSEX_SERVODATA;
+	packet[5] = 7;					//length
+	packet[6] = channel;
+	packet[7] = servo_minimum[channel] >> 1;
+	packet[8] = servo_minimum[channel] & 1;
+	packet[9] = myservo[channel].read() >> 1;
+	packet[10] = myservo[channel].read() & 1;
+	packet[11] = servo_maximum[channel] >> 1;
+	packet[12] = servo_maximum[channel] & 1;
+	
+	packet[13] = 0x80; // fake checksum
+	packet[14] = 0xF7; 	// end of sysex
 
+/*	for (int i = 0; i< send_servo_data_reply_length; i++) {
+		Serial.print(packet[i],HEX);
+		Serial.print(" ");
+	}
+	Serial.println(); */
+   pCharacteristic->setValue(packet, send_servo_data_reply_length); // packet, length in bytes)
+   pCharacteristic->notify();
+}
+
+
+
+void set_limits(char channel) {
+	if (channel < NUM_SERVOS) {
+		Serial.print("Servo ");
+		Serial.print(channel + 1, DEC);
+		Serial.print(" limits: ");
+		Serial.print(servo_minimum[channel], DEC);
+		Serial.print(" - ");
+		Serial.print(servo_maximum[channel], DEC);
+		Serial.println();
+	}
+	preferences.begin("changlier", false);
+	preferences.putBytes("minima",servo_minimum,NUM_SERVOS);
+	preferences.putBytes("maxima",servo_maximum,NUM_SERVOS);
+	preferences.end();
+}
 
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
@@ -87,7 +147,9 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 
       if (rxValue.length() > 0) {
 	      last_packet = micros();
-		if ((rxValue[2] >> 4 ) == 0x0B) {
+		digitalWrite(LED_BUILTIN,HIGH);
+	      
+		if ((rxValue[2] >> 4 ) == 0x0B) {				// Control Change
 			int idx = rxValue[3]-1;
 			char val = rxValue[4];
 			if (val > 127) val = 127;
@@ -95,8 +157,102 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 			if (idx >= 0 && idx < NUM_SERVOS) {
 				servo_val_raw[idx] = val;
 			} else if (idx == 6) servo_detach = val;
+		} else {
+		/*
+			Serial.println("-------------");
+			for (int i = 2; i < rxValue.length(); i++) {
+				Serial.print(rxValue[i]);
+			}
+			Serial.println();
+			Serial.print("DEC: ");
+			for (int i = 2; i < rxValue.length(); i++) {
+				Serial.print(rxValue[i], DEC);
+				Serial.print(" ");
+			}
+			Serial.println();
+			Serial.print("HEX: ");
+			for (int i = 2; i < rxValue.length(); i++) {
+				Serial.print(rxValue[i], HEX);
+				Serial.print(" ");
+			}
+			Serial.println();
+			Serial.println("-------------");
+			*/
 		}
-      }
+		if (rxValue[2] == 0xF0) {					// SYSEX
+			if (rxValue[3] == 0x7D) {				// Homebrew Device
+
+				char command = rxValue[4];
+				char len = rxValue[5];
+				char channel = rxValue[6]-1;
+				String new_name = "";
+
+				switch (command) {
+					case SYSEX_NOP:
+						Serial.print("NOP");
+						break;								
+					case SYSEX_NAMECHANGE:
+						if (len > rxValue.length() - 8) {
+							Serial.println("PARSE ERROR: Incorrect length");
+							Serial.print(len,DEC);
+							Serial.print(" ");
+							Serial.print(rxValue.length(),DEC);
+
+						} else {
+							for (int i = 0; i < len; i++) {
+								char in = rxValue[i + 6];
+								if ((in > 31) && (in < 123)) {
+									new_name += in;
+								} else {
+									Serial.println("PARSE ERROR: Forbidden char");
+								}
+							}
+							Serial.print("Change name to: ");
+							Serial.println(new_name);
+							preferences.begin("changlier", false);
+							preferences.putString("hostname",new_name);
+							preferences.end();
+							
+						}
+						break;
+					case SYSEX_CLEAR_MIN_MAX:
+						if (channel < NUM_SERVOS) {
+								servo_minimum[channel] = 0;
+								servo_maximum[channel] = 180;
+								set_limits(channel);
+						}
+						break;
+					case SYSEX_SET_MINIMUM:
+						if (channel < NUM_SERVOS) {
+							servo_minimum[channel] = myservo[channel].read();
+							set_limits(channel);
+						}
+						break;
+					case SYSEX_SET_MAXIMUM:
+						if (channel < NUM_SERVOS) {
+							servo_maximum[channel] = myservo[channel].read();
+							set_limits(channel);
+						}
+						break;
+					case SYSEX_INVERT_MIN_MAX:
+						if (channel < NUM_SERVOS) {
+							char old_min = servo_minimum[channel];
+							servo_minimum[channel] = servo_maximum[channel];
+							servo_maximum[channel] = old_min;
+							set_limits(channel);
+						}
+						break;
+					case SYSEX_SEND_SERVODATA:
+						if (channel < NUM_SERVOS) {
+							send_servo_data(channel);
+						}
+						break;
+					default:
+						break;
+					}
+				}
+			}
+ 	   }
     }
 };
 
@@ -107,7 +263,7 @@ void read_preferences() {
     preferences.begin("changlier", false);
 	
     hostname = preferences.getString("hostname");
-    if (hostname == String()) { hostname = "bebe_changlier"; }
+    if (hostname == String()) { hostname = "Bebe Changlier"; }
     
    if(preferences.getBytesLength("minima") != NUM_SERVOS) {
     	//Serial.print(ln(F("Generating default minima + maxima"));
