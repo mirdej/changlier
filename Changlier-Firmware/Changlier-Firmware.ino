@@ -18,7 +18,7 @@
 #include <BLEUtils.h>
 #include <BLEServer.h>
 #include <BLE2902.h>
-
+#include <Timer.h>
 //========================================================================================
 //----------------------------------------------------------------------------------------
 //																				DEFINES
@@ -34,21 +34,18 @@
 #define SYSEX_SEND_SERVODATA	30
 
 #define SYSEX_SERVODATA			50
-// .............................................................................Pins 
-
-
-const char 	servo_pins[] 			= {32,33,25,26,27,14};
-const char 	BTN_SEL 				= 3;	// Select button
-const char 	BTN_UP 					= 1; // Up
-
-const char NUM_SERVOS				= 6;
-const int LOG_SIZE					= 200;
-const int BUF_SIZE					= 100;
-
-const int SERVO_MAX_STEP			= 2;
 
 #define SERVICE_UUID        "03b80e5a-ede8-4b33-a751-6ce34ec4c700"
 #define CHARACTERISTIC_UUID "7772e5db-3868-4112-a1a9-f2669d106bf3"
+// .............................................................................Pins 
+
+
+const char 	servo_pin[] 			= {32,33,25,26,27,14};
+const char  note_pin[]				= {22,21,23,19};
+
+const char 	NUM_SERVOS				= 6;
+const char	NUM_NOTES				= 4;
+
 
 
 //========================================================================================
@@ -56,6 +53,7 @@ const int SERVO_MAX_STEP			= 2;
 //																				GLOBALS
 Preferences                             preferences;
 Servo 									myservo[NUM_SERVOS];
+Timer									t;
 
 String 									hostname;
 
@@ -67,13 +65,18 @@ unsigned long last_packet;
 BLECharacteristic *pCharacteristic;
 bool deviceConnected = false;
 
-
-long servo_service_interval = 2000; // microseconds
-long last_servo_service; // microseconds
 boolean isConnected;
 
 unsigned char servo_minimum[NUM_SERVOS];
 unsigned char servo_maximum[NUM_SERVOS];
+
+uint8_t midiPacket[] = {
+   0x80,  // header
+   0x80,  // timestamp, not implemented 
+   0x00,  // status
+   0x3c,  // 0x3c == 60 == middle c
+   0x00   // velocity
+};
 
 
 //========================================================================================
@@ -146,7 +149,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
       std::string rxValue = pCharacteristic->getValue();
 
       if (rxValue.length() > 0) {
-	      last_packet = micros();
+	      last_packet = millis();
 		digitalWrite(LED_BUILTIN,HIGH);
 	      
 		if ((rxValue[2] >> 4 ) == 0x0B) {				// Control Change
@@ -282,13 +285,37 @@ void read_preferences() {
 }
 
 
+//----------------------------------------------------------------------------------------
+//																				NOTES
+
+void check_buttons() {
+	static char old_button[NUM_NOTES];
+	for (int i = 0; i < NUM_NOTES; i++) {
+		char button = digitalRead(note_pin[i]);
+		if (old_button[i] != button) {
+			old_button[i] = button;
+			 midiPacket[3] 	= 60+i;
+
+			if (button) {
+				midiPacket[2] = 0x80; // note off, channel 0
+				midiPacket[4] = 0;  // velocity
+			} else {
+				midiPacket[2] = 0x90; // note on, channel 0
+				midiPacket[4] = 127;    // velocity
+			}
+			
+			pCharacteristic->setValue(midiPacket, 5); // packet, length in bytes
+			pCharacteristic->notify();
+		}
+	}
+}
+
 
 
 //----------------------------------------------------------------------------------------
 //																				SERVOS
 
 void service_servos(){
-	last_servo_service = micros();
 	int	 target_val;
 	for (int i = 0; i < NUM_SERVOS; i++) {
 		if (servo_val_raw[i] < 128) {
@@ -298,7 +325,7 @@ void service_servos(){
 				}
 			} else {
 					if (!myservo[i].attached()) {
-							myservo[i].attach(servo_pins[i]);
+							myservo[i].attach(servo_pin[i]);
 					} 
 					target_val  = servo_val_raw[i];
 					target_val = map(target_val ,0,127,servo_minimum[i],servo_maximum[i]);
@@ -307,8 +334,6 @@ void service_servos(){
 			}	
 	}
 }
-
-
 
 //========================================================================================
 //----------------------------------------------------------------------------------------
@@ -324,40 +349,47 @@ void setup(){
 	for (int i = 0; i< NUM_SERVOS; i++) {
 		servo_val_raw[i] = 255;
 	}
+	for (int i = 0; i< NUM_NOTES; i++) {
+		pinMode(note_pin[i], INPUT_PULLUP);
+	}
+
 	read_preferences();
 	
 	
-	  BLEDevice::init(hostname.c_str());
+	BLEDevice::init(hostname.c_str());
     
-  // Create the BLE Server
-  BLEServer *pServer = BLEDevice::createServer();
-  pServer->setCallbacks(new MyServerCallbacks());
+	// Create the BLE Server
+	BLEServer *pServer = BLEDevice::createServer();
+	pServer->setCallbacks(new MyServerCallbacks());
 
-  // Create the BLE Service
-  BLEService *pService = pServer->createService(BLEUUID(SERVICE_UUID));
+	// Create the BLE Service
+	BLEService *pService = pServer->createService(BLEUUID(SERVICE_UUID));
 
-  // Create a BLE Characteristic
-  pCharacteristic = pService->createCharacteristic(
-    BLEUUID(CHARACTERISTIC_UUID),
-    BLECharacteristic::PROPERTY_READ   |
-    BLECharacteristic::PROPERTY_WRITE  |
-    BLECharacteristic::PROPERTY_NOTIFY |
-    BLECharacteristic::PROPERTY_WRITE_NR
-  );
+	// Create a BLE Characteristic
+	pCharacteristic = pService->createCharacteristic(
+		BLEUUID(CHARACTERISTIC_UUID),
+		BLECharacteristic::PROPERTY_READ   |
+		BLECharacteristic::PROPERTY_WRITE  |
+		BLECharacteristic::PROPERTY_NOTIFY |
+		BLECharacteristic::PROPERTY_WRITE_NR
+	);
 
-  // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
-  // Create a BLE Descriptor
-  pCharacteristic->addDescriptor(new BLE2902());
+	// https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
+	// Create a BLE Descriptor
+	pCharacteristic->addDescriptor(new BLE2902());
 	pCharacteristic->setCallbacks(new MyCallbacks());
 
+	// Start the service
+	pService->start();
 
-  // Start the service
-  pService->start();
+	// Start advertising
+	BLEAdvertising *pAdvertising = pServer->getAdvertising();
+	pAdvertising->addServiceUUID(pService->getUUID());
+	pAdvertising->start();
 
-  // Start advertising
-  BLEAdvertising *pAdvertising = pServer->getAdvertising();
-  pAdvertising->addServiceUUID(pService->getUUID());
-  pAdvertising->start();
+	t.every(4,service_servos);
+	t.every(20,check_buttons);
+	digitalWrite(LED_BUILTIN,LOW);
 }
 
 
@@ -367,7 +399,8 @@ void setup(){
 //																				loop
  
 void loop(){
-    if ((micros() - last_packet)		 	> 200000) {					 	digitalWrite(LED_BUILTIN,LOW);}
-	if ((micros() - last_servo_service) 	> servo_service_interval) { 	service_servos(); }
+	t.update();
+	
+    if ((millis() - last_packet) > 200) {digitalWrite(LED_BUILTIN,LOW);}
 }
 
