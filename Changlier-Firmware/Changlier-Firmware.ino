@@ -19,6 +19,8 @@
 #include <BLEServer.h>
 #include <BLE2902.h>
 #include <Timer.h>
+#include <FastLED.h>
+
 //========================================================================================
 //----------------------------------------------------------------------------------------
 //																				DEFINES
@@ -42,9 +44,10 @@
 
 const char 	servo_pin[] 			= {32,33,25,26,27,14};
 const char  note_pin[]				= {22,21,23,19};
-
+const char	PIN_PIXELS				= 13;
 const char 	NUM_SERVOS				= 6;
 const char	NUM_NOTES				= 4;
+const char	NUM_PIXELS				= 6;
 
 
 
@@ -54,6 +57,9 @@ const char	NUM_NOTES				= 4;
 Preferences                             preferences;
 Servo 									myservo[NUM_SERVOS];
 Timer									t;
+
+CRGB                                    pixels[NUM_PIXELS];
+CHSV									colors[NUM_PIXELS];
 
 String 									hostname;
 
@@ -106,11 +112,6 @@ void send_servo_data(int channel) {
 	packet[13] = 0x80; // fake checksum
 	packet[14] = 0xF7; 	// end of sysex
 
-/*	for (int i = 0; i< send_servo_data_reply_length; i++) {
-		Serial.print(packet[i],HEX);
-		Serial.print(" ");
-	}
-	Serial.println(); */
    pCharacteristic->setValue(packet, send_servo_data_reply_length); // packet, length in bytes)
    pCharacteristic->notify();
 }
@@ -150,39 +151,39 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 
       if (rxValue.length() > 0) {
 	      last_packet = millis();
-		digitalWrite(LED_BUILTIN,HIGH);
-	      
-		if ((rxValue[2] >> 4 ) == 0x0B) {				// Control Change
+			digitalWrite(LED_BUILTIN,HIGH);
+//------------------------------						// Control Change
+		if ((rxValue[2] >> 4 ) == 0x0B) {				
 			int idx = rxValue[3]-1;
 			char val = rxValue[4];
 			if (val > 127) val = 127;
-			
-			if (idx >= 0 && idx < NUM_SERVOS) {
-				servo_val_raw[idx] = val;
-			} else if (idx == 6) servo_detach = val;
-		} else {
-		/*
-			Serial.println("-------------");
-			for (int i = 2; i < rxValue.length(); i++) {
-				Serial.print(rxValue[i]);
+			if (idx >= 0) {
+				if (idx < NUM_SERVOS) {					// channels 1 - 6:	 	control servos
+					servo_val_raw[idx] = val;
+				} else if (idx == 6) { 
+					servo_detach = val;					// channel 7: 			global servo detach 
+					if (val > 64) servo_detach = 0xFF;
+				} else if (idx == 7) { 					// channel 8:			global hue
+					for (int i = 0; i < NUM_PIXELS; i++) {
+						colors[i].hue = 2 * val;
+					}
+				} else if (idx == 8) { 					// channel 9:			global saturation
+					for (int i = 0; i < NUM_PIXELS; i++) {
+						colors[i].saturation = 2 * val;
+					}
+				} else if (idx == 9) { 					//channel 10:  			global brightness
+					for (int i = 0; i < NUM_PIXELS; i++) {
+						colors[i].value = 2 * val;
+					}					
+				} else {								//channels 11-16:		individual brightness
+					if ((idx - 10) < NUM_PIXELS) {
+						colors[(idx - 10)].value = 2 * val;
+					} 
+				}
 			}
-			Serial.println();
-			Serial.print("DEC: ");
-			for (int i = 2; i < rxValue.length(); i++) {
-				Serial.print(rxValue[i], DEC);
-				Serial.print(" ");
-			}
-			Serial.println();
-			Serial.print("HEX: ");
-			for (int i = 2; i < rxValue.length(); i++) {
-				Serial.print(rxValue[i], HEX);
-				Serial.print(" ");
-			}
-			Serial.println();
-			Serial.println("-------------");
-			*/
-		}
-		if (rxValue[2] == 0xF0) {					// SYSEX
+		} 
+//------------------------------					// SYSEX	
+		if (rxValue[2] == 0xF0) {					
 			if (rxValue[3] == 0x7D) {				// Homebrew Device
 
 				char command = rxValue[4];
@@ -294,7 +295,7 @@ void check_buttons() {
 		char button = digitalRead(note_pin[i]);
 		if (old_button[i] != button) {
 			old_button[i] = button;
-			 midiPacket[3] 	= 60+i;
+			 midiPacket[3] 	= 5+i;
 
 			if (button) {
 				midiPacket[2] = 0x80; // note off, channel 0
@@ -310,7 +311,15 @@ void check_buttons() {
 	}
 }
 
+//----------------------------------------------------------------------------------------
+//																				LEDS
 
+void update_leds() {
+	for (int i = 0; i < NUM_PIXELS; i++) {
+		pixels[i] = colors[i];
+	}
+	FastLED.show();
+}
 
 //----------------------------------------------------------------------------------------
 //																				SERVOS
@@ -345,7 +354,20 @@ void setup(){
     pinMode(LED_BUILTIN,OUTPUT);
     digitalWrite(LED_BUILTIN,HIGH);
 	
+	FastLED.addLeds<NEOPIXEL, PIN_PIXELS>(pixels, NUM_PIXELS);
 	
+	for (int hue = 0; hue < 360; hue++) {
+    	fill_rainbow( pixels, NUM_PIXELS, hue, 7);
+	    delay(3);
+    	FastLED.show(); 
+  	}
+  
+	for (int i = 0; i< NUM_PIXELS; i++) {
+		colors[i].hue = 42; // yellow
+		colors[i].saturation = 160;
+		colors[i].value = 0;
+	}
+
 	for (int i = 0; i< NUM_SERVOS; i++) {
 		servo_val_raw[i] = 255;
 	}
@@ -389,6 +411,7 @@ void setup(){
 
 	t.every(4,service_servos);
 	t.every(20,check_buttons);
+	t.every(20,update_leds);
 	digitalWrite(LED_BUILTIN,LOW);
 }
 

@@ -95,7 +95,7 @@
 					"mode" : 1,
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 243.0, 50.0, 128.0, 128.0 ],
+					"patching_rect" : [ 96.0, 25.0, 128.0, 128.0 ],
 					"presentation" : 1,
 					"presentation_rect" : [ 30.0, 32.0, 656.0, 76.0 ],
 					"proportion" : 0.39,
@@ -280,7 +280,6 @@
 									"numoutlets" : 1,
 									"outlettype" : [ "int" ],
 									"patching_rect" : [ 229.0, 375.0, 29.5, 22.0 ],
-									"presentation_rect" : [ 229.0, 375.0, 0.0, 0.0 ],
 									"style" : "",
 									"text" : "+"
 								}
@@ -294,7 +293,6 @@
 									"numoutlets" : 1,
 									"outlettype" : [ "int" ],
 									"patching_rect" : [ 229.0, 339.0, 35.0, 22.0 ],
-									"presentation_rect" : [ 229.0, 339.0, 0.0, 0.0 ],
 									"style" : "",
 									"text" : "<< 1"
 								}
@@ -321,7 +319,6 @@
 									"numoutlets" : 1,
 									"outlettype" : [ "int" ],
 									"patching_rect" : [ 172.0, 375.0, 29.5, 22.0 ],
-									"presentation_rect" : [ 174.0, 375.0, 0.0, 0.0 ],
 									"style" : "",
 									"text" : "+"
 								}
@@ -335,7 +332,6 @@
 									"numoutlets" : 1,
 									"outlettype" : [ "int" ],
 									"patching_rect" : [ 172.0, 339.0, 35.0, 22.0 ],
-									"presentation_rect" : [ 174.0, 339.0, 0.0, 0.0 ],
 									"style" : "",
 									"text" : "<< 1"
 								}
@@ -871,7 +867,7 @@
 							"modernui" : 1
 						}
 ,
-						"rect" : [ 0.0, 0.0, 640.0, 480.0 ],
+						"rect" : [ 59.0, 104.0, 640.0, 480.0 ],
 						"bgcolor" : [ 0.239216, 0.254902, 0.278431, 1.0 ],
 						"editing_bgcolor" : [ 0.239216, 0.254902, 0.278431, 1.0 ],
 						"bglocked" : 0,
@@ -901,6 +897,19 @@
 						"style" : "",
 						"subpatcher_template" : "standard",
 						"boxes" : [ 							{
+								"box" : 								{
+									"id" : "obj-1",
+									"maxclass" : "newobj",
+									"numinlets" : 3,
+									"numoutlets" : 2,
+									"outlettype" : [ "int", "int" ],
+									"patching_rect" : [ 100.500008, 129.0, 72.0, 22.0 ],
+									"style" : "",
+									"text" : "split 31 127"
+								}
+
+							}
+, 							{
 								"box" : 								{
 									"id" : "obj-99",
 									"maxclass" : "newobj",
@@ -932,7 +941,7 @@
 									"numinlets" : 1,
 									"numoutlets" : 4,
 									"outlettype" : [ "bang", "", "", "clear" ],
-									"patching_rect" : [ 100.5, 172.0, 65.0, 22.0 ],
+									"patching_rect" : [ 100.500008, 172.0, 65.0, 22.0 ],
 									"style" : "",
 									"text" : "t b l l clear"
 								}
@@ -997,7 +1006,7 @@
 									"numinlets" : 3,
 									"numoutlets" : 1,
 									"outlettype" : [ "list" ],
-									"patching_rect" : [ 100.5, 130.0, 40.0, 22.0 ],
+									"patching_rect" : [ 100.500008, 94.0, 40.0, 22.0 ],
 									"style" : "",
 									"text" : "atoi"
 								}
@@ -1010,7 +1019,7 @@
 									"numinlets" : 2,
 									"numoutlets" : 2,
 									"outlettype" : [ "", "" ],
-									"patching_rect" : [ 100.5, 100.0, 61.0, 22.0 ],
+									"patching_rect" : [ 100.500008, 64.0, 61.0, 22.0 ],
 									"style" : "",
 									"text" : "route text"
 								}
@@ -1025,13 +1034,20 @@
 									"numinlets" : 0,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
-									"patching_rect" : [ 100.5, 40.0, 30.0, 30.0 ],
+									"patching_rect" : [ 100.500008, 4.0, 30.0, 30.0 ],
 									"style" : ""
 								}
 
 							}
  ],
 						"lines" : [ 							{
+								"patchline" : 								{
+									"destination" : [ "obj-93", 0 ],
+									"source" : [ "obj-1", 0 ]
+								}
+
+							}
+, 							{
 								"patchline" : 								{
 									"destination" : [ "obj-82", 0 ],
 									"source" : [ "obj-100", 0 ]
@@ -1047,7 +1063,7 @@
 							}
 , 							{
 								"patchline" : 								{
-									"destination" : [ "obj-93", 0 ],
+									"destination" : [ "obj-1", 0 ],
 									"source" : [ "obj-87", 0 ]
 								}
 
@@ -2038,7 +2054,7 @@
 , 			{
 				"box" : 				{
 					"id" : "obj-35",
-					"items" : [ "AU DLS Synth 1", ",", "Network Session 1", ",", "Network Session 2", ",", "Hans Dampf Bluetooth", ",", "from Max 1", ",", "from Max 2" ],
+					"items" : [ "AU DLS Synth 1", ",", "Network Session 1", ",", "Network Session 2", ",", "from Max 1", ",", "from Max 2", ",", "Renate Bluetooth" ],
 					"maxclass" : "umenu",
 					"numinlets" : 1,
 					"numoutlets" : 3,
@@ -2085,11 +2101,11 @@
 					"numoutlets" : 4,
 					"outlettype" : [ "", "int", "", "" ],
 					"parameter_enable" : 0,
-					"patching_rect" : [ 275.5, 202.0, 112.0, 25.0 ],
+					"patching_rect" : [ 275.5, 202.0, 113.0, 25.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 565.0, 123.0, 112.0, 18.0 ],
+					"presentation_rect" : [ 565.0, 123.0, 113.0, 18.0 ],
 					"style" : "",
-					"text" : "Hans Dampf"
+					"text" : "Renate"
 				}
 
 			}
