@@ -72,6 +72,7 @@ BLECharacteristic *pCharacteristic;
 bool deviceConnected = false;
 
 boolean isConnected;
+boolean leds_changed;
 
 unsigned char servo_minimum[NUM_SERVOS];
 unsigned char servo_maximum[NUM_SERVOS];
@@ -122,18 +123,22 @@ void led_control(char idx, char val) {
 	if (idx == 7) { 					// channel 8:			global hue
 		for (int i = 0; i < NUM_PIXELS; i++) {
 			colors[i].hue = 2 * val;
+			leds_changed = true;
 		}
 	} else if (idx == 8) { 					// channel 9:			global saturation
 		for (int i = 0; i < NUM_PIXELS; i++) {
 			colors[i].saturation = 2 * val;
+			leds_changed = true;
 		}
 	} else if (idx == 9) { 					//channel 10:  			global brightness
 		for (int i = 0; i < NUM_PIXELS; i++) {
 			colors[i].value = 2 * val;
 		}					
+		leds_changed = true;
 	} else {								//channels 11-16:		individual brightness
 		if ((idx - 10) < NUM_PIXELS) {
 			colors[(idx - 10)].value = 2 * val;
+			leds_changed = true;
 		} 
 	}
 }
@@ -338,10 +343,12 @@ void check_buttons() {
 //																				LEDS
 
 void update_leds() {
+	if (!leds_changed) return;
 	for (int i = 0; i < NUM_PIXELS; i++) {
 		pixels[i] = colors[i];
 	}
 	FastLED.show();
+	leds_changed = false;
 }
 
 //----------------------------------------------------------------------------------------

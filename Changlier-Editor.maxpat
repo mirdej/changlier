@@ -2054,7 +2054,7 @@
 , 			{
 				"box" : 				{
 					"id" : "obj-35",
-					"items" : [ "AU DLS Synth 1", ",", "Network Session 1", ",", "Network Session 2", ",", "from Max 1", ",", "from Max 2", ",", "Renate Bluetooth" ],
+					"items" : [ "AU DLS Synth 1", ",", "Network Session 1", ",", "Network Session 2", ",", "Bebe Changlier Bluetooth", ",", "from Max 1", ",", "from Max 2" ],
 					"maxclass" : "umenu",
 					"numinlets" : 1,
 					"numoutlets" : 3,
@@ -2096,6 +2096,7 @@
 				"box" : 				{
 					"fontsize" : 12.0,
 					"id" : "obj-30",
+					"keymode" : 1,
 					"maxclass" : "textedit",
 					"numinlets" : 1,
 					"numoutlets" : 4,
@@ -2105,7 +2106,7 @@
 					"presentation" : 1,
 					"presentation_rect" : [ 565.0, 123.0, 113.0, 18.0 ],
 					"style" : "",
-					"text" : "Renate"
+					"text" : "Changlier 2"
 				}
 
 			}
