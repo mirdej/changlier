@@ -9,7 +9,7 @@
 			"modernui" : 1
 		}
 ,
-		"rect" : [ 53.0, 79.0, 1076.0, 690.0 ],
+		"rect" : [ 53.0, 79.0, 752.0, 311.0 ],
 		"bgcolor" : [ 0.239216, 0.254902, 0.278431, 1.0 ],
 		"editing_bgcolor" : [ 0.239216, 0.254902, 0.278431, 1.0 ],
 		"bglocked" : 0,
@@ -75,7 +75,7 @@
 					"presentation" : 1,
 					"presentation_rect" : [ 267.0, 123.0, 202.0, 20.0 ],
 					"style" : "",
-					"text" : "Firmware version: 2020-02-15.1i"
+					"text" : "Firmware version: 2020-02-15.1"
 				}
 
 			}
@@ -127,6 +127,33 @@
 						"subpatcher_template" : "standard",
 						"boxes" : [ 							{
 								"box" : 								{
+									"id" : "obj-15",
+									"maxclass" : "newobj",
+									"numinlets" : 2,
+									"numoutlets" : 2,
+									"outlettype" : [ "", "" ],
+									"patching_rect" : [ 53.0, 334.0, 63.0, 22.0 ],
+									"style" : "",
+									"text" : "zl slice 12"
+								}
+
+							}
+, 							{
+								"box" : 								{
+									"id" : "obj-13",
+									"linecount" : 7,
+									"maxclass" : "message",
+									"numinlets" : 2,
+									"numoutlets" : 1,
+									"outlettype" : [ "" ],
+									"patching_rect" : [ 146.0, 188.0, 50.0, 102.0 ],
+									"style" : "",
+									"text" : "50 48 50 48 45 48 50 45 49 53 46 49 112"
+								}
+
+							}
+, 							{
+								"box" : 								{
 									"id" : "obj-18",
 									"maxclass" : "button",
 									"numinlets" : 1,
@@ -144,9 +171,9 @@
 									"numinlets" : 2,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
-									"patching_rect" : [ 146.0, 363.0, 216.0, 22.0 ],
+									"patching_rect" : [ 146.0, 437.0, 216.0, 22.0 ],
 									"style" : "",
-									"text" : "Firmware version: 2020-02-15.1i"
+									"text" : "Firmware version: 2020-02-15.1"
 								}
 
 							}
@@ -209,7 +236,7 @@
 									"maxclass" : "outlet",
 									"numinlets" : 1,
 									"numoutlets" : 0,
-									"patching_rect" : [ 50.0, 357.0, 30.0, 30.0 ],
+									"patching_rect" : [ 50.0, 431.0, 30.0, 30.0 ],
 									"style" : ""
 								}
 
@@ -221,7 +248,7 @@
 									"numinlets" : 1,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
-									"patching_rect" : [ 50.0, 324.0, 181.0, 22.0 ],
+									"patching_rect" : [ 50.0, 398.0, 181.0, 22.0 ],
 									"style" : "",
 									"text" : "sprintf set Firmware version: %s"
 								}
@@ -234,7 +261,7 @@
 									"numinlets" : 3,
 									"numoutlets" : 1,
 									"outlettype" : [ "int" ],
-									"patching_rect" : [ 50.0, 283.0, 40.0, 22.0 ],
+									"patching_rect" : [ 50.0, 366.0, 40.0, 22.0 ],
 									"style" : "",
 									"text" : "itoa"
 								}
@@ -313,7 +340,7 @@
 									"outlettype" : [ "", "" ],
 									"patching_rect" : [ 50.0, 249.0, 55.0, 22.0 ],
 									"style" : "",
-									"text" : "route 10"
+									"text" : "route 12"
 								}
 
 							}
@@ -438,6 +465,13 @@
 							}
 , 							{
 								"patchline" : 								{
+									"destination" : [ "obj-11", 0 ],
+									"source" : [ "obj-15", 0 ]
+								}
+
+							}
+, 							{
+								"patchline" : 								{
 									"destination" : [ "obj-31", 0 ],
 									"source" : [ "obj-17", 0 ]
 								}
@@ -554,7 +588,16 @@
 							}
 , 							{
 								"patchline" : 								{
-									"destination" : [ "obj-11", 0 ],
+									"destination" : [ "obj-13", 1 ],
+									"order" : 0,
+									"source" : [ "obj-7", 0 ]
+								}
+
+							}
+, 							{
+								"patchline" : 								{
+									"destination" : [ "obj-15", 0 ],
+									"order" : 1,
 									"source" : [ "obj-7", 0 ]
 								}
 
@@ -625,14 +668,14 @@
 , 			{
 				"box" : 				{
 					"fontname" : "Lucida Grande",
-					"fontsize" : 48.0,
+					"fontsize" : 36.0,
 					"id" : "obj-67",
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 549.0, 165.0, 601.0, 63.0 ],
+					"patching_rect" : [ 549.0, 165.0, 456.0, 49.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 173.0, 38.5, 403.0, 63.0 ],
+					"presentation_rect" : [ 174.0, 31.5, 306.0, 49.0 ],
 					"style" : "",
 					"text" : "Changlier Config",
 					"textcolor" : [ 0.862745, 0.870588, 0.878431, 1.0 ]
@@ -2572,7 +2615,7 @@
 , 			{
 				"box" : 				{
 					"id" : "obj-35",
-					"items" : [ "AU DLS Synth 1", ",", "Network Session 1", ",", "Network Session 2", ",", "from Max 1", ",", "from Max 2", ",", "Bebe Changlier Bluetooth" ],
+					"items" : [ "AU DLS Synth 1", ",", "Network Session 1", ",", "Network Session 2", ",", "Changlier1 Bluetooth", ",", "from Max 1", ",", "from Max 2" ],
 					"maxclass" : "umenu",
 					"numinlets" : 1,
 					"numoutlets" : 3,
@@ -2736,7 +2779,7 @@
 					"numoutlets" : 0,
 					"patching_rect" : [ 96.0, 25.0, 128.0, 128.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 30.0, 32.0, 656.0, 76.0 ],
+					"presentation_rect" : [ 30.0, 32.0, 656.0, 49.0 ],
 					"proportion" : 0.39,
 					"style" : ""
 				}
