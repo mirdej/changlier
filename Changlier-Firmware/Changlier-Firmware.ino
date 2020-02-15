@@ -1,4 +1,4 @@
-#define VERSION "2020-02-12"
+const char * version = "2020-02-15.1";
 
 //----------------------------------------------------------------------------------------
 //
@@ -27,16 +27,20 @@
 
 
 #define SYSEX_NOP				0
+
+#define SYSEX_GET_VERSION		10
+
 #define SYSEX_NAMECHANGE		22
 #define SYSEX_SET_MINIMUM		25
 #define SYSEX_SET_MAXIMUM		26
 #define SYSEX_CLEAR_MIN_MAX		28
 #define SYSEX_INVERT_MIN_MAX	29
 
+
 #define SYSEX_SEND_SERVODATA	30
 
 #define SYSEX_SERVODATA			50
-
+#define SYSEX_VERSION_DATA		51
 #define SERVICE_UUID        "03b80e5a-ede8-4b33-a751-6ce34ec4c700"
 #define CHARACTERISTIC_UUID "7772e5db-3868-4112-a1a9-f2669d106bf3"
 // .............................................................................Pins 
@@ -116,6 +120,32 @@ void send_servo_data(int channel) {
    pCharacteristic->setValue(packet, send_servo_data_reply_length); // packet, length in bytes)
    pCharacteristic->notify();
 }
+
+void send_version() {
+	const int send_version_reply_length = 21;
+	uint8_t packet[send_version_reply_length];
+	
+//	Serial.print("Send: ");
+	
+	packet[0] = 0x80;  // header
+	packet[1] = 0x80;  // timestamp, not implemented 
+	packet[2] = 0xF0;  // SYSEX
+	packet[3] = 0x7D;  // Homebrew Device
+	
+	packet[4] = SYSEX_VERSION_DATA;
+	packet[5] = 12;					//length
+	
+	for (int i = 0; i < 12; i++) {
+		packet[6+i] = version[i];
+	}
+		
+	packet[19] = 0x80; // fake checksum
+	packet[20] = 0xF7; 	// end of sysex
+
+   pCharacteristic->setValue(packet, send_version_reply_length); // packet, length in bytes)
+   pCharacteristic->notify();
+}
+
 
 
 void led_control(char idx, char val) {
@@ -224,6 +254,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 						Serial.print("NOP");
 						break;								
 					case SYSEX_NAMECHANGE:
+						Serial.println("Attempt name change");
 						if (len > rxValue.length() - 8) {
 							Serial.println("PARSE ERROR: Incorrect length");
 							Serial.print(len,DEC);
@@ -278,6 +309,9 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 						if (channel < NUM_SERVOS) {
 							send_servo_data(channel);
 						}
+						break;
+					case SYSEX_GET_VERSION:
+						send_version();
 						break;
 					default:
 						break;
@@ -384,6 +418,7 @@ void setup(){
     pinMode(LED_BUILTIN,OUTPUT);
     digitalWrite(LED_BUILTIN,HIGH);
 	
+	Serial.println("Startup");
 	FastLED.addLeds<NEOPIXEL, PIN_PIXELS>(pixels, NUM_PIXELS);
 	
 	for (int hue = 0; hue < 360; hue++) {
@@ -443,6 +478,7 @@ void setup(){
 	t.every(20,check_buttons);
 	t.every(20,update_leds);
 	digitalWrite(LED_BUILTIN,LOW);
+	Serial.println("Setup finished");
 }
 
 
