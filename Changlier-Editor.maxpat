@@ -77,7 +77,7 @@
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 663.0, 587.0, 50.0, 22.0 ],
 					"style" : "",
-					"text" : "64"
+					"text" : "63"
 				}
 
 			}
@@ -418,7 +418,7 @@
 									"outlettype" : [ "" ],
 									"patching_rect" : [ 205.0, 291.0, 90.0, 22.0 ],
 									"style" : "",
-									"text" : "1 60 66 64 0"
+									"text" : "0 20 20 63 20"
 								}
 
 							}
@@ -987,7 +987,7 @@
 				"box" : 				{
 					"id" : "obj-12",
 					"maxclass" : "number",
-					"maximum" : 64,
+					"maximum" : 127,
 					"minimum" : 0,
 					"numinlets" : 1,
 					"numoutlets" : 2,

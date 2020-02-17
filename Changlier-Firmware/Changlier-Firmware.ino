@@ -499,7 +499,7 @@ void update_leds() {
 //																				SERVOS
 
 void service_servos(){
-	int	 target_val;
+	long	 target_val, actual_val;
 	for (int i = 0; i < NUM_SERVOS; i++) {
 		if (servo_val_raw[i] < 128) {
 			if (servo_detach & (1 << i) || (servo_val_raw[i] > servo_detach_minimum[i] && servo_val_raw[i] < servo_detach_maximum[i])) {
@@ -510,8 +510,11 @@ void service_servos(){
 					if (!myservo[i].attached()) {
 							myservo[i].attach(servo_pin[i]);
 					} 
+					actual_val = myservo[i].read();
 					target_val  = servo_val_raw[i];
 					target_val = map(target_val ,0,127,servo_minimum[i],servo_maximum[i]);
+					target_val = (servo_smooth[i] * actual_val + target_val) /  (servo_smooth[i] + 1 );
+					
 					myservo[i].write(target_val);
 				}	
 			}	
