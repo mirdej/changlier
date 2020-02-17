@@ -1,4 +1,4 @@
-const char * version = "2020-02-15.2";
+const char * version = "2020-02-17.1";
 
 //----------------------------------------------------------------------------------------
 //
@@ -9,8 +9,11 @@ const char * version = "2020-02-15.2";
 //		License: 	This is FREE software (as in free speech, not necessarily free beer)
 //					published under gnu GPL v.3
 //
+//		DMX Library: https://github.com/luksal/ESP32-DMX-RX
+//
 //----------------------------------------------------------------------------------------
 
+#include <dmx.h>
 
 #include <Preferences.h>
 #include <ESP32Servo.h>
@@ -29,8 +32,10 @@ const char * version = "2020-02-15.2";
 #define SYSEX_NOP				0
 
 #define SYSEX_GET_VERSION		10
+#define SYSEX_GET_DMX_ADDRESS	11
 
 #define SYSEX_NAMECHANGE		22
+#define SYSEX_SET_DMX_ADDRESS	23
 #define SYSEX_SET_SERVOSETTINGS	24
 #define SYSEX_SET_MINIMUM		25
 #define SYSEX_SET_MAXIMUM		26
@@ -43,6 +48,7 @@ const char * version = "2020-02-15.2";
 #define SYSEX_SERVODATA			50
 #define SYSEX_VERSION_DATA		51
 #define SYSEX_SERVOSETTINGS		52
+#define SYSEX_DMX_ADDRESS		53
 
 
 #define SERVICE_UUID        "03b80e5a-ede8-4b33-a751-6ce34ec4c700"
@@ -70,6 +76,8 @@ CRGB                                    pixels[NUM_PIXELS];
 CHSV									colors[NUM_PIXELS];
 
 String 									hostname;
+
+int										dmx_address;
 
 unsigned char servo_val_raw[NUM_SERVOS];
 unsigned char servo_detach;
@@ -181,6 +189,30 @@ void send_version() {
    pCharacteristic->notify();
 }
 
+
+void send_dmx_address() {
+	const int reply_length = 10;
+	uint8_t packet[reply_length];
+	
+//	Serial.print("Send: ");
+	
+	packet[0] = 0x80;  // header
+	packet[1] = 0x80;  // timestamp, not implemented 
+	packet[2] = 0xF0;  // SYSEX
+	packet[3] = 0x7D;  // Homebrew Device
+	
+	packet[4] = SYSEX_DMX_ADDRESS;
+	packet[5] = 2;					//length
+	
+	packet[6] = dmx_address >> 8;
+	packet[7] = dmx_address & 0xFF;
+		
+	packet[8] = 0x80; // fake checksum
+	packet[9] = 0xF7; 	// end of sysex
+
+   pCharacteristic->setValue(packet, reply_length); // packet, length in bytes)
+   pCharacteristic->notify();
+}
 
 
 void led_control(char idx, char val) {
@@ -378,6 +410,17 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 					case SYSEX_GET_VERSION:
 						send_version();
 						break;
+					case SYSEX_GET_DMX_ADDRESS:
+						send_dmx_address();
+						break;
+					case SYSEX_SET_DMX_ADDRESS:
+						dmx_address = rxValue[6] << 8;
+						dmx_address |= rxValue[7];
+						if (dmx_address > 490) dmx_address = 490;
+						Serial.print("DMX Address: ");
+						Serial.println(dmx_address);
+						send_dmx_address();
+						break;
 					default:
 						break;
 					}
@@ -419,7 +462,9 @@ void read_preferences() {
 	
     hostname = preferences.getString("hostname");
     if (hostname == String()) { hostname = "Bebe Changlier"; }
-    
+
+	dmx_address = preferences.getInt("dmx_address",1);
+
    if(preferences.getBytesLength("minima") != NUM_SERVOS) {
     	//Serial.print(ln(F("Generating default minima + maxima"));
     	for (int i = 0; i < NUM_SERVOS; i++) {
@@ -521,6 +566,32 @@ void service_servos(){
 	}
 }
 
+void check_dmx() {
+	static char old_values[16];
+	char val , idx;
+	
+    if(DMX::IsHealthy()) {
+		last_packet = millis();	    
+		for (int i = 0; i < NUM_SERVOS; i++) {
+			val = DMX::Read(i + dmx_address);
+			if (val > 127) val = 127;
+			servo_val_raw[i] = val;
+		}
+		val = DMX::Read(7);
+		if (val > 127) val = 127;
+		servo_detach = DMX::Read(6 + dmx_address);
+		
+		for (int i = 7; i < 16; i++) {
+			val = DMX::Read(i + dmx_address);
+			if (val > 127) val = 127;
+			if (val != old_values[i]) {
+				old_values[i] = val;
+				led_control(i,val);
+			}
+		}
+	} 
+}
+
 //========================================================================================
 //----------------------------------------------------------------------------------------
 //																				SETUP
@@ -531,6 +602,9 @@ void setup(){
     pinMode(LED_BUILTIN,OUTPUT);
     digitalWrite(LED_BUILTIN,HIGH);
 	
+	
+	DMX::Initialize();
+
 	Serial.println("Startup");
 	FastLED.addLeds<NEOPIXEL, PIN_PIXELS>(pixels, NUM_PIXELS);
 	
@@ -590,7 +664,8 @@ void setup(){
 	pAdvertising->addServiceUUID(pService->getUUID());
 	pAdvertising->start();
 
-	t.every(4,service_servos);
+	t.every(25,service_servos);
+	t.every(25,check_dmx);
 	t.every(20,check_buttons);
 	t.every(20,update_leds);
 	digitalWrite(LED_BUILTIN,LOW);
