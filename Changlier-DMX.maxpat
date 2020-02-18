@@ -13,7 +13,7 @@
 		"bgcolor" : [ 0.32549, 0.345098, 0.372549, 1.0 ],
 		"editing_bgcolor" : [ 0.239216, 0.254902, 0.278431, 1.0 ],
 		"bglocked" : 0,
-		"openinpresentation" : 0,
+		"openinpresentation" : 1,
 		"default_fontsize" : 12.0,
 		"default_fontface" : 0,
 		"default_fontname" : "Arial",
@@ -130,7 +130,7 @@
 					"presentation" : 1,
 					"presentation_rect" : [ 113.75, 23.5, 494.0, 21.0 ],
 					"style" : "",
-					"text" : "Closed connection to www.anyma.ch/udmx"
+					"text" : "Could not find USB device www.anyma.ch/udmx"
 				}
 
 			}
@@ -1127,8 +1127,7 @@
 					"patching_rect" : [ 1654.5, 918.0, 113.0, 25.0 ],
 					"presentation" : 1,
 					"presentation_rect" : [ 790.0, 91.0, 113.0, 18.0 ],
-					"style" : "",
-					"text" : "Manu"
+					"style" : ""
 				}
 
 			}
