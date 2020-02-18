@@ -1,4 +1,4 @@
-const char * version = "2020-02-17.1";
+const char * version = "2020-02-18.1";
 
 //----------------------------------------------------------------------------------------
 //
@@ -194,7 +194,7 @@ void send_dmx_address() {
 	const int reply_length = 10;
 	uint8_t packet[reply_length];
 	
-//	Serial.print("Send: ");
+	Serial.println("Send DMX Address");
 	
 	packet[0] = 0x80;  // header
 	packet[1] = 0x80;  // timestamp, not implemented 
@@ -274,7 +274,6 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 
       if (rxValue.length() > 0) {
 	      last_packet = millis();
-			digitalWrite(LED_BUILTIN,HIGH);
 //------------------------------						// Control Change
 		if ((rxValue[2] >> 4 ) == 0x0B) {				
 			int idx = rxValue[3]-1;
@@ -419,6 +418,11 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 						if (dmx_address > 490) dmx_address = 490;
 						Serial.print("DMX Address: ");
 						Serial.println(dmx_address);
+						
+						preferences.begin("changlier", false);
+						preferences.putInt("dmx_address",dmx_address);
+						preferences.end();
+
 						send_dmx_address();
 						break;
 					default:
@@ -432,6 +436,13 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 
 
 void print_settings() {
+		Serial.println("======================================");
+		Serial.println("CHANGLIER by Steve Octane Trio");
+		Serial.println("======================================");
+		Serial.print("Device Name: ");
+		Serial.println(hostname);
+		Serial.print("DMX Address: ");
+		Serial.println(dmx_address);
 		Serial.println("--------------");
 		Serial.println("Settings");
 		
@@ -558,7 +569,7 @@ void service_servos(){
 					actual_val = myservo[i].read();
 					target_val  = servo_val_raw[i];
 					target_val = map(target_val ,0,127,servo_minimum[i],servo_maximum[i]);
-					target_val = (servo_smooth[i] * actual_val + target_val) /  (servo_smooth[i] + 1 );
+			//		target_val = (servo_smooth[i] * actual_val + target_val) /  (servo_smooth[i] + 1 );
 					
 					myservo[i].write(target_val);
 				}	
@@ -577,10 +588,10 @@ void check_dmx() {
 			if (val > 127) val = 127;
 			servo_val_raw[i] = val;
 		}
-		val = DMX::Read(7);
+/*		val = DMX::Read(6 + dmx_address);
 		if (val > 127) val = 127;
-		servo_detach = DMX::Read(6 + dmx_address);
-		
+		servo_detach = val;
+*/		
 		for (int i = 7; i < 16; i++) {
 			val = DMX::Read(i + dmx_address);
 			if (val > 127) val = 127;
@@ -664,7 +675,7 @@ void setup(){
 	pAdvertising->addServiceUUID(pService->getUUID());
 	pAdvertising->start();
 
-	t.every(25,service_servos);
+	t.every(10,service_servos);
 	t.every(25,check_dmx);
 	t.every(20,check_buttons);
 	t.every(20,update_leds);
@@ -681,5 +692,7 @@ void setup(){
 void loop(){
 	t.update();
     if ((millis() - last_packet) > 200) {digitalWrite(LED_BUILTIN,LOW);}
+    else {digitalWrite(LED_BUILTIN,HIGH); }
+
 }
 
