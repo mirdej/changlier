@@ -1,4 +1,4 @@
-const char * version = "2020-02-18.3";
+const char * version = "2020-02-18.4";
 
 //----------------------------------------------------------------------------------------
 //
@@ -10,6 +10,7 @@ const char * version = "2020-02-18.3";
 //					published under gnu GPL v.3
 //
 //		DMX Library: https://github.com/luksal/ESP32-DMX-RX
+//		Attention buffer overflow bug on line 134
 //
 //----------------------------------------------------------------------------------------
 
