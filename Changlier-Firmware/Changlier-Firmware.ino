@@ -1,4 +1,4 @@
-const char * version = "2020-02-18.1";
+const char * version = "2020-02-18.2";
 
 //----------------------------------------------------------------------------------------
 //
@@ -577,6 +577,9 @@ void service_servos(){
 	}
 }
 
+//----------------------------------------------------------------------------------------
+//																				DMX
+
 void check_dmx() {
 	static char old_values[16];
 	char val , idx;
@@ -585,8 +588,7 @@ void check_dmx() {
 		last_packet = millis();	    
 		for (int i = 0; i < NUM_SERVOS; i++) {
 			val = DMX::Read(i + dmx_address);
-			if (val > 127) val = 127;
-			servo_val_raw[i] = val;
+			if (val < 128) servo_val_raw[i] = val;
 		}
 /*		val = DMX::Read(6 + dmx_address);
 		if (val > 127) val = 127;
@@ -594,10 +596,11 @@ void check_dmx() {
 */		
 		for (int i = 7; i < 16; i++) {
 			val = DMX::Read(i + dmx_address);
-			if (val > 127) val = 127;
-			if (val != old_values[i]) {
-				old_values[i] = val;
-				led_control(i,val);
+			if (val < 128) {
+				if (val != old_values[i]) {
+					old_values[i] = val;
+					led_control(i,val);
+				}
 			}
 		}
 	} 
