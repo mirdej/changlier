@@ -180,6 +180,7 @@
 						"tags" : "",
 						"style" : "",
 						"subpatcher_template" : "standard",
+						"visible" : 1,
 						"boxes" : [ 							{
 								"box" : 								{
 									"comment" : "",
@@ -278,9 +279,9 @@
 									"numinlets" : 2,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
-									"patching_rect" : [ 108.0, 424.0, 39.0, 22.0 ],
+									"patching_rect" : [ 19.0, 417.0, 90.0, 22.0 ],
 									"style" : "",
-									"text" : "close"
+									"text" : "blackout, close"
 								}
 
 							}
@@ -291,7 +292,7 @@
 									"numinlets" : 2,
 									"numoutlets" : 2,
 									"outlettype" : [ "bang", "" ],
-									"patching_rect" : [ 122.0, 200.0, 36.0, 22.0 ],
+									"patching_rect" : [ 19.0, 200.0, 36.0, 22.0 ],
 									"style" : "",
 									"text" : "sel 0"
 								}
@@ -550,7 +551,7 @@
 , 							{
 								"patchline" : 								{
 									"destination" : [ "obj-21", 0 ],
-									"midpoints" : [ 131.5, 235.0, 370.5, 235.0 ],
+									"midpoints" : [ 28.5, 235.0, 370.5, 235.0 ],
 									"order" : 0,
 									"source" : [ "obj-10", 0 ]
 								}
@@ -639,7 +640,7 @@
 , 							{
 								"patchline" : 								{
 									"destination" : [ "obj-10", 0 ],
-									"order" : 0,
+									"order" : 1,
 									"source" : [ "obj-27", 0 ]
 								}
 
@@ -647,7 +648,7 @@
 , 							{
 								"patchline" : 								{
 									"destination" : [ "obj-28", 0 ],
-									"order" : 1,
+									"order" : 0,
 									"source" : [ "obj-27", 0 ]
 								}
 
