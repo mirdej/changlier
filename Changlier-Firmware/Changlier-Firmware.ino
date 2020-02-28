@@ -1,4 +1,4 @@
-const char * version = "2020-02-18.4";
+const char * version = "2020-02-28.0";
 
 //----------------------------------------------------------------------------------------
 //
@@ -29,6 +29,8 @@ const char * version = "2020-02-18.4";
 //----------------------------------------------------------------------------------------
 //																				DEFINES
 
+#define	DMX_DETACH_TIME			5
+#define	DMX_CHANNELS			20
 
 #define SYSEX_NOP				0
 
@@ -82,6 +84,8 @@ int										dmx_address;
 
 unsigned char servo_val_raw[NUM_SERVOS];
 unsigned char servo_detach;
+
+unsigned int dmx_detach[DMX_CHANNELS];
 
 unsigned long last_packet;
 
@@ -280,6 +284,9 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 			int idx = rxValue[3]-1;
 			char val = rxValue[4];
 			if (val > 127) val = 127;
+			
+			if (idx < DMX_CHANNELS && idx >= 0) dmx_detach[idx] = DMX_DETACH_TIME;
+
 			if (idx >= 0) {
 				if (idx < NUM_SERVOS) {					// channels 1 - 6:	 	control servos
 					servo_val_raw[idx] = val;
@@ -297,14 +304,20 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 			int idx = rxValue[3]-1;
 			char val = rxValue[4];
 			if (val > 127) val = 127;
-			if (idx >= 10 )led_control(idx,val);
+			if (idx >= 10 && idx < 16) {
+				dmx_detach[idx] = DMX_DETACH_TIME;
+				led_control(idx,val);
+			}
 		} 
 //------------------------------						// Note OFF
 		if ((rxValue[2] >> 4 ) == 0x08) {				
 			int idx = rxValue[3]-1;
 			char val = rxValue[4];
 			if (val > 127) val = 127;
-			if (idx >= 10 )led_control(idx,0);
+			if (idx >= 10 && idx < 16) {
+				dmx_detach[idx] = DMX_DETACH_TIME;
+				led_control(idx,0);
+			}
 		} 
 
 //------------------------------					// SYSEX	
@@ -587,29 +600,42 @@ void service_servos(){
 // DMX value > 128:		-> NOP
 
 void check_dmx() {
-	static char old_values[16];
+	static char old_values[DMX_CHANNELS];
 	char val , idx;
 	
     if(DMX::IsHealthy()) {
 		last_packet = millis();	    
 		for (int i = 0; i < NUM_SERVOS; i++) {
-			val = DMX::Read(i + dmx_address);
-			if (val < 129 && val > 0) servo_val_raw[i] = val - 1;
+			if (!dmx_detach[i]) {
+				val = DMX::Read(i + dmx_address);
+				if (val < 129 && val > 0) servo_val_raw[i] = val - 1;
+			}
 		}
 /*		val = DMX::Read(6 + dmx_address);
 		if (val > 127) val = 127;
 		servo_detach = val;
 */		
 		for (int i = 7; i < 16; i++) {
-			val = DMX::Read(i + dmx_address);
-			if (val < 129 && val > 0) {
-				if (val != old_values[i]) {
-					old_values[i] = val;
-					led_control(i,val - 1);
+			if (!dmx_detach[i]) {
+				val = DMX::Read(i + dmx_address);
+				if (val < 129 && val > 0) {
+					if (val != old_values[i]) {
+						old_values[i] = val;
+						led_control(i,val - 1);
+					}
 				}
 			}
 		}
 	} 
+}
+
+//----------------------------------------------------------------------------------------
+//																				DMX detach when MIDI arrives
+
+void check_dmx_detach(void) {
+	for (int i = 0; i < DMX_CHANNELS; i++) {
+		if (dmx_detach[i]) dmx_detach[i]--;
+	}
 }
 
 //========================================================================================
@@ -688,6 +714,7 @@ void setup(){
 	t.every(25,check_dmx);
 	t.every(20,check_buttons);
 	t.every(20,update_leds);
+	t.every(1000,check_dmx_detach);
 	digitalWrite(LED_BUILTIN,LOW);
 	Serial.println("Setup finished");
 }
