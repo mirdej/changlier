@@ -14,6 +14,8 @@ const char * version = "2020-02-28.0";
 //
 //----------------------------------------------------------------------------------------
 
+// TODO DMXaddrss -> Sysex 7BIT !!!!!
+
 #include <dmx.h>
 
 #include <Preferences.h>
@@ -32,12 +34,11 @@ const char * version = "2020-02-28.0";
 #define	DMX_DETACH_TIME			5
 #define	DMX_CHANNELS			20
 
-#define DEBOUNCE_TIME			200
-
 #define SYSEX_NOP				0
 
 #define SYSEX_GET_VERSION		10
 #define SYSEX_GET_DMX_ADDRESS	11
+#define SYSEX_GET_DEBOUNCE		12
 
 #define SYSEX_NAMECHANGE		22
 #define SYSEX_SET_DMX_ADDRESS	23
@@ -54,6 +55,9 @@ const char * version = "2020-02-28.0";
 #define SYSEX_VERSION_DATA		51
 #define SYSEX_SERVOSETTINGS		52
 #define SYSEX_DMX_ADDRESS		53
+#define SYSEX_DEBOUNCE			54
+#define SYSEX_SET_DEBOUNCE			55
+
 
 
 #define SERVICE_UUID        "03b80e5a-ede8-4b33-a751-6ce34ec4c700"
@@ -90,6 +94,8 @@ unsigned char servo_detach;
 unsigned int dmx_detach[DMX_CHANNELS];
 
 unsigned long last_packet;
+
+unsigned int debounce_time;
 
 BLECharacteristic *pCharacteristic;
 bool deviceConnected = false;
@@ -211,8 +217,33 @@ void send_dmx_address() {
 	packet[4] = SYSEX_DMX_ADDRESS;
 	packet[5] = 2;					//length
 	
-	packet[6] = dmx_address >> 8;
-	packet[7] = dmx_address & 0xFF;
+	packet[6] = (dmx_address >> 7) & 0x7F;
+	packet[7] = dmx_address & 0x7F;
+		
+	packet[8] = 0x80; // fake checksum
+	packet[9] = 0xF7; 	// end of sysex
+
+   pCharacteristic->setValue(packet, reply_length); // packet, length in bytes)
+   pCharacteristic->notify();
+}
+
+
+void send_debounce_time() {
+	const int reply_length = 10;
+	uint8_t packet[reply_length];
+	
+	Serial.println("Send Debounce Time");
+	
+	packet[0] = 0x80;  // header
+	packet[1] = 0x80;  // timestamp, not implemented 
+	packet[2] = 0xF0;  // SYSEX
+	packet[3] = 0x7D;  // Homebrew Device
+	
+	packet[4] = SYSEX_DEBOUNCE;
+	packet[5] = 2;					//length
+	
+	packet[6] = (debounce_time >> 7) & 0x7F;
+	packet[7] = debounce_time & 0x7F;
 		
 	packet[8] = 0x80; // fake checksum
 	packet[9] = 0xF7; 	// end of sysex
@@ -428,8 +459,11 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 					case SYSEX_GET_DMX_ADDRESS:
 						send_dmx_address();
 						break;
+					case SYSEX_GET_DEBOUNCE:
+						send_debounce_time();
+						break;
 					case SYSEX_SET_DMX_ADDRESS:
-						dmx_address = rxValue[6] << 8;
+						dmx_address = rxValue[6] << 7;
 						dmx_address |= rxValue[7];
 						if (dmx_address > 490) dmx_address = 490;
 						Serial.print("DMX Address: ");
@@ -437,6 +471,19 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 						
 						preferences.begin("changlier", false);
 						preferences.putInt("dmx_address",dmx_address);
+						preferences.end();
+
+						send_dmx_address();
+						break;
+					case SYSEX_SET_DEBOUNCE:
+						debounce_time = rxValue[6] << 7;
+						debounce_time |= rxValue[7];
+
+						Serial.print("Debounce Time: ");
+						Serial.println(debounce_time);
+						
+						preferences.begin("changlier", false);
+						preferences.putInt("debounce_time",debounce_time);
 						preferences.end();
 
 						send_dmx_address();
@@ -491,6 +538,7 @@ void read_preferences() {
     if (hostname == String()) { hostname = "Bebe Changlier"; }
 
 	dmx_address = preferences.getInt("dmx_address",1);
+	debounce_time = preferences.getInt("debounce_time",50);
 
    if(preferences.getBytesLength("minima") != NUM_SERVOS) {
     	//Serial.print(ln(F("Generating default minima + maxima"));
@@ -544,7 +592,7 @@ void check_buttons() {
 			char button = digitalRead(note_pin[i]);
 			if (old_button[i] != button) {
 				old_button[i] = button;
-				debounce[i] = DEBOUNCE_TIME;
+				debounce[i] = debounce_time;
 				 midiPacket[3] 	= 5+i;
 
 				if (button) {
