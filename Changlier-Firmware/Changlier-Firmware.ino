@@ -32,6 +32,8 @@ const char * version = "2020-02-28.0";
 #define	DMX_DETACH_TIME			5
 #define	DMX_CHANNELS			20
 
+#define DEBOUNCE_TIME			200
+
 #define SYSEX_NOP				0
 
 #define SYSEX_GET_VERSION		10
@@ -533,22 +535,29 @@ void read_preferences() {
 
 void check_buttons() {
 	static char old_button[NUM_NOTES];
+	static char debounce[NUM_NOTES];
+	
 	for (int i = 0; i < NUM_NOTES; i++) {
-		char button = digitalRead(note_pin[i]);
-		if (old_button[i] != button) {
-			old_button[i] = button;
-			 midiPacket[3] 	= 5+i;
+		if (debounce[i]) {
+			debounce[i]--;
+		} else {
+			char button = digitalRead(note_pin[i]);
+			if (old_button[i] != button) {
+				old_button[i] = button;
+				debounce[i] = DEBOUNCE_TIME;
+				 midiPacket[3] 	= 5+i;
 
-			if (button) {
-				midiPacket[2] = 0x80; // note off, channel 0
-				midiPacket[4] = 0;  // velocity
-			} else {
-				midiPacket[2] = 0x90; // note on, channel 0
-				midiPacket[4] = 127;    // velocity
-			}
+				if (button) {
+					midiPacket[2] = 0x80; // note off, channel 0
+					midiPacket[4] = 0;  // velocity
+				} else {
+					midiPacket[2] = 0x90; // note on, channel 0
+					midiPacket[4] = 127;    // velocity
+				}
 			
-			pCharacteristic->setValue(midiPacket, 5); // packet, length in bytes
-			pCharacteristic->notify();
+				pCharacteristic->setValue(midiPacket, 5); // packet, length in bytes
+				pCharacteristic->notify();
+			}
 		}
 	}
 }
@@ -712,7 +721,7 @@ void setup(){
 
 	t.every(10,service_servos);
 	t.every(25,check_dmx);
-	t.every(20,check_buttons);
+	t.every(1,check_buttons);
 	t.every(20,update_leds);
 	t.every(1000,check_dmx_detach);
 	digitalWrite(LED_BUILTIN,LOW);
