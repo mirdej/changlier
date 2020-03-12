@@ -1,4 +1,4 @@
-const char * version = "2020-02-28.0";
+const char * version = "2020-03-12.0";
 
 //----------------------------------------------------------------------------------------
 //
@@ -13,8 +13,6 @@ const char * version = "2020-02-28.0";
 //		Attention buffer overflow bug on line 134
 //
 //----------------------------------------------------------------------------------------
-
-// TODO DMXaddrss -> Sysex 7BIT !!!!!
 
 #include <dmx.h>
 
@@ -31,7 +29,7 @@ const char * version = "2020-02-28.0";
 //----------------------------------------------------------------------------------------
 //																				DEFINES
 
-#define	DMX_DETACH_TIME			5
+#define	DMX_DETACH_TIME			10
 #define	DMX_CHANNELS			20
 
 #define SYSEX_NOP				0
@@ -43,13 +41,16 @@ const char * version = "2020-02-28.0";
 #define SYSEX_NAMECHANGE		22
 #define SYSEX_SET_DMX_ADDRESS	23
 #define SYSEX_SET_SERVOSETTINGS	24
-#define SYSEX_SET_MINIMUM		25
-#define SYSEX_SET_MAXIMUM		26
+#define SYSEX_SET_MINIMUM_HERE		25
+#define SYSEX_SET_MAXIMUM_HERE		26
 #define SYSEX_CLEAR_MIN_MAX		28
 #define SYSEX_INVERT_MIN_MAX	29
 
 #define SYSEX_SEND_SERVODATA		30
 #define SYSEX_SEND_SERVOSETTINGS	31
+
+#define SYSEX_SET_MINIMUM		40
+#define SYSEX_SET_MAXIMUM		41
 
 #define SYSEX_SERVODATA			50
 #define SYSEX_VERSION_DATA		51
@@ -309,7 +310,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 
     void onWrite(BLECharacteristic *pCharacteristic) {
       std::string rxValue = pCharacteristic->getValue();
-
+		unsigned int temp ;
       if (rxValue.length() > 0) {
 	      last_packet = millis();
 //------------------------------						// Control Change
@@ -398,13 +399,13 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 								set_limits(channel);
 						}
 						break;
-					case SYSEX_SET_MINIMUM:
+					case SYSEX_SET_MINIMUM_HERE:
 						if (channel < NUM_SERVOS) {
 							servo_minimum[channel] = myservo[channel].read();
 							set_limits(channel);
 						}
 						break;
-					case SYSEX_SET_MAXIMUM:
+					case SYSEX_SET_MAXIMUM_HERE:
 						if (channel < NUM_SERVOS) {
 							servo_maximum[channel] = myservo[channel].read();
 							set_limits(channel);
@@ -452,6 +453,20 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 						if (channel < NUM_SERVOS) {
 							send_servo_settings(channel);
 						}
+						break;
+					case SYSEX_SET_MINIMUM:
+						temp = rxValue[7] << 7;
+						temp |= rxValue[8];
+						if (temp > 180) temp = 180;
+						servo_minimum[channel] = temp;
+						set_limits(channel);
+						break;
+					case SYSEX_SET_MAXIMUM:
+						temp  = rxValue[7] << 7;
+						temp |= rxValue[8];
+						if (temp > 180) temp = 180;
+						servo_maximum[channel] = temp;
+						set_limits(channel);
 						break;
 					case SYSEX_GET_VERSION:
 						send_version();
@@ -709,7 +724,7 @@ void setup(){
 	DMX::Initialize();
 
 	Serial.println("Startup");
-	FastLED.addLeds<NEOPIXEL, PIN_PIXELS>(pixels, NUM_PIXELS);
+	FastLED.addLeds<SK6812, PIN_PIXELS, RGB>(pixels, NUM_PIXELS);
 	
 	for (int hue = 0; hue < 360; hue++) {
     	fill_rainbow( pixels, NUM_PIXELS, hue, 7);
@@ -788,4 +803,3 @@ void loop(){
     else {digitalWrite(LED_BUILTIN,HIGH); }
 
 }
-
