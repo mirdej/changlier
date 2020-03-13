@@ -82,6 +82,7 @@ Preferences                             preferences;
 Servo 									myservo[NUM_SERVOS];
 Timer									t;
 
+CRGB									statusled[1];
 CRGB                                    pixels[NUM_PIXELS];
 CHSV									colors[NUM_PIXELS];
 
@@ -725,9 +726,11 @@ void setup(){
 
 	Serial.println("Startup");
 	FastLED.addLeds<SK6812, PIN_PIXELS, RGB>(pixels, NUM_PIXELS);
-	
+//FastLED.addLeds<SK6812, 1, RGB>(statusled, 1);
+
 	for (int hue = 0; hue < 360; hue++) {
     	fill_rainbow( pixels, NUM_PIXELS, hue, 7);
+//		statusled[0].setHSV(hue,127,127);
 	    delay(3);
     	FastLED.show(); 
   	}
