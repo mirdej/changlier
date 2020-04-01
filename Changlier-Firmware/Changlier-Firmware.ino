@@ -1,4 +1,4 @@
-const char * version = "2020-03-31.0";
+const char * version = "2020-04-01.2";
 
 //----------------------------------------------------------------------------------------
 //
@@ -169,6 +169,18 @@ void park() {
 	for (int i = 0; i< NUM_SERVOS; i++) {	
 		set_easing(i, servo_ease[i]);
 		dmx_detach[i] = DMX_DETACH_TIME;
+	}
+}
+
+void detach_all() {
+	for (int i = 0; i< NUM_SERVOS; i++) {
+		myservo[i].detach();
+	}
+}
+
+void attach_all() {
+	for (int i = 0; i< NUM_SERVOS; i++) {
+		myservo[i].attach(servo_pin[i]);
 	}
 }
 
@@ -390,6 +402,8 @@ void set_param(int channel,int param, int value) {
 			
 		case PARAM_reset_all:
 			if (value == 1 ) park();
+			if (value == 2 ) attach_all();
+			if (value == 3 ) detach_all();
 			if (value == 20 ) generate_default_values();
 			break;
 	}
