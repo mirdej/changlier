@@ -71,6 +71,20 @@ const int PARAM_detach_lo = 5;
 const int PARAM_detach_hi = 6;
 const int PARAM_ease_func = 7;
 const int PARAM_speed = 8;
+const int PARAM_ease_distance = 9;
+const int PARAM_channel = 10;
+const int PARAM_reset_all = 11;
+
+
+#define DEFAULT_MINIMUM		0
+#define DEFAULT_MAXIMUM		180
+#define DEFAULT_MINIMUM_DETACH 63
+#define DEFAULT_MINIMUM_DETACH 63
+#define DEFAULT_INIT	90
+#define DEFAULT_EASE	0
+#define DEFAULT_SPEED	120
+#define DEFAULT_EASE_DISTANCE 36
+
 
 
 #define SERVICE_UUID        "03b80e5a-ede8-4b33-a751-6ce34ec4c700"
@@ -118,7 +132,11 @@ bool deviceConnected = false;
 boolean isConnected;
 boolean leds_changed;
 
+boolean	settings_changed;
+boolean		servo_channels_messed_up;
 unsigned char servo_ease[NUM_SERVOS];
+unsigned char servo_ease_distance[NUM_SERVOS];
+unsigned char servo_channel[NUM_SERVOS];
 unsigned char servo_speed[NUM_SERVOS];
 unsigned char servo_startup[NUM_SERVOS];
 unsigned char servo_minimum[NUM_SERVOS];
@@ -243,7 +261,7 @@ void send_debounce_time() {
 
 
 void get_param(int channel, int param){
-	Serial.print("Get Param ");	Serial.print(param);	Serial.print(" for channel ");Serial.println(channel);
+//	Serial.print("Get Param ");	Serial.print(param);	Serial.print(" for channel ");Serial.println(channel);
 	int return_val;
 	switch (param) {
 		case  PARAM_min : 
@@ -266,6 +284,12 @@ void get_param(int channel, int param){
 			break;
 		case  PARAM_speed : 
 			return_val = servo_speed[channel];
+			break;
+		case  PARAM_ease_distance : 
+			return_val = servo_ease_distance[channel];
+			break;
+		case  PARAM_channel : 
+			return_val = servo_channel[channel] + 1;
 			break;
 		default:
 			return;
@@ -297,7 +321,7 @@ void get_param(int channel, int param){
 }
 
 void set_param(int channel,int param, int value) {
-	Serial.print("Set Param ");	Serial.print(param);	Serial.print(" for channel ");Serial.print(channel);Serial.print(" to value ");Serial.println(value);
+	//Serial.print("Set Param ");	Serial.print(param);	Serial.print(" for channel ");Serial.print(channel);Serial.print(" to value ");Serial.println(value);
 
 	switch (param) {
 		case  PARAM_min : 
@@ -311,6 +335,8 @@ void set_param(int channel,int param, int value) {
 		case  PARAM_init : 
 			if (value > 180) value = 180;
 			servo_startup[channel] = value;
+			dmx_detach[channel] = DMX_DETACH_TIME;
+			myservo[channel].write(value);
 			break;
 		case  PARAM_detach_lo : 
 			if (value > 127) value = 127;
@@ -329,8 +355,34 @@ void set_param(int channel,int param, int value) {
 			if (value > 255) value = 255;
 			servo_speed[channel] = value;
 			break;
+		case  PARAM_ease_distance : 
+			if (value > 100) value = 100;
+			if (value > 5) value = 5;
+			servo_ease_distance[channel] = value;
+			break;
+		case  PARAM_channel : 
+			if (value > 6) value = 6;
+			if (value < 1) value = 1;
+			servo_channel[channel] = value - 1;
+			servo_channels_messed_up = false;
+			for (int i = 0; i < NUM_SERVOS; i++) {
+				if (servo_channel[i] != i ) servo_channels_messed_up = true;
+			}
+			if (servo_channels_messed_up) Serial.println("Messed up Servos");
+
+			break;
+			
+		case PARAM_reset_all:
+			generate_default_values();
+			break;
 	}
-	write_settings();
+	settings_changed = true;
+}
+
+
+void check_settings_changed() {
+	if 	(settings_changed) write_settings();
+	settings_changed = false;
 }
 
 void set_easing(char chan, char val) {
@@ -380,16 +432,28 @@ void led_control(char idx, char val) {
 }
 
 
-void servo_control(char idx, char val){
+void set_servo (char idx, char val) {
+	val = map(val ,0,127,servo_minimum[idx],servo_maximum[idx]);
 	if (servo_ease[idx] == 0) {
 			myservo[idx].write(val);
 	} else {
-		if (abs(val-myservo[idx].getCurrentAngle()) < 48) {
+		if (abs(val-myservo[idx].getCurrentAngle()) < servo_ease_distance[idx]) {
 			if (!myservo[idx].isMoving()) myservo[idx].write(val);
 		} else {
-			myservo[idx].startEaseTo(val,servo_speed[idx]);
+			if (!myservo[idx].isMoving()) myservo[idx].startEaseTo(val,servo_speed[idx]);
 		}
 	}
+}
+
+void servo_control(char chan, char val){
+	if (servo_channels_messed_up) {
+		for (int i = 0; i < NUM_SERVOS; i++) {
+			if (servo_channel[i] == chan) {
+				set_servo(i,val);
+			}
+		}
+	} else set_servo(chan,val);
+
 }
 
 void set_limits(char channel) {
@@ -436,7 +500,6 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 			if (idx >= 0) {
 				if (idx < NUM_SERVOS) {					// channels 1 - 6:	 	control servos
 					//servo_val_raw[idx] = val;
-					val = map(val ,0,127,servo_minimum[idx],servo_maximum[idx]);
 					servo_control(idx,val);
 				} else if (idx == 6) { 
 					servo_detach = val;					// channel 7: 			global servo detach 
@@ -624,6 +687,23 @@ void print_settings() {
 //----------------------------------------------------------------------------------------
 //																				Preferences
 
+void generate_default_values() {
+	Serial.println(F("Generating default servo settings"));
+    	for (int i = 0; i < NUM_SERVOS; i++) {
+    		servo_minimum[i] = DEFAULT_MINIMUM;
+    		servo_maximum[i] = DEFAULT_MAXIMUM;
+   			servo_detach_minimum[i] = DEFAULT_MINIMUM_DETACH;
+    		servo_detach_maximum[i] = DEFAULT_MINIMUM_DETACH;
+    		servo_startup[i] = DEFAULT_INIT;
+    		servo_ease[i] = DEFAULT_EASE;
+    		servo_speed[i] = DEFAULT_SPEED;
+    		servo_ease_distance[i] = DEFAULT_EASE_DISTANCE;
+			servo_channel[i] = i;
+    	}
+    write_settings();
+}  	
+    	
+    	
 void read_preferences() {
     preferences.begin("changlier", false);
 	
@@ -634,35 +714,90 @@ void read_preferences() {
 	debounce_time = preferences.getInt("debounce_time",50);
 
    if(preferences.getBytesLength("minima") != NUM_SERVOS) {
-    	//Serial.print(ln(F("Generating default minima + maxima"));
     	for (int i = 0; i < NUM_SERVOS; i++) {
-    		servo_minimum[i] = 0;
-    		servo_maximum[i] = 180;
-    	}
-    	preferences.putBytes("minima",servo_minimum,NUM_SERVOS);
-    	preferences.putBytes("maxima",servo_maximum,NUM_SERVOS);
+    		servo_minimum[i] = DEFAULT_MINIMUM;
+        	}
+    	settings_changed = true;
     } else {
-        preferences.getBytes("minima",servo_minimum,NUM_SERVOS);
-    	preferences.getBytes("maxima",servo_maximum,NUM_SERVOS);
+      	preferences.getBytes("minima",servo_minimum,NUM_SERVOS);
     }
 
-   if(preferences.getBytesLength("detach_minima") != NUM_SERVOS) {
-    	Serial.println(F("Generating default servo settings"));
+   if(preferences.getBytesLength("maxima") != NUM_SERVOS) {
     	for (int i = 0; i < NUM_SERVOS; i++) {
-    		servo_detach_minimum[i] = 63;
-    		servo_detach_maximum[i] = 63;
-    		servo_startup[i] = 63;
-    		servo_ease[i] = 0;
-    		servo_speed[i] = 100;
+    		servo_maximum[i] = DEFAULT_MAXIMUM;
     	}
-    	write_settings();
+    	settings_changed = true;
+    } else {
+    	preferences.getBytes("maxima",servo_maximum,NUM_SERVOS);
+    }
+    
+   if(preferences.getBytesLength("detach_minima") != NUM_SERVOS) {
+    	for (int i = 0; i < NUM_SERVOS; i++) {
+     		servo_detach_minimum[i] = DEFAULT_MINIMUM_DETACH;
+    	}
+    	settings_changed = true;
     } else {
         preferences.getBytes("detach_minima",servo_detach_minimum,NUM_SERVOS);
+    }
+
+   if(preferences.getBytesLength("detach_maxima") != NUM_SERVOS) {
+    	for (int i = 0; i < NUM_SERVOS; i++) {
+     		servo_detach_maximum[i] = DEFAULT_MINIMUM_DETACH;
+    	}
+    	settings_changed = true;
+    } else {
     	preferences.getBytes("detach_maxima",servo_detach_maximum,NUM_SERVOS);
+    }
+
+   if(preferences.getBytesLength("startup") != NUM_SERVOS) {
+    	for (int i = 0; i < NUM_SERVOS; i++) {
+    		servo_startup[i] = DEFAULT_INIT;
+    	}
+    	settings_changed = true;
+    } else {
     	preferences.getBytes("startup",servo_startup,NUM_SERVOS);
+    }
+
+   if(preferences.getBytesLength("smooth") != NUM_SERVOS) {
+    	for (int i = 0; i < NUM_SERVOS; i++) {
+    		servo_ease[i] = DEFAULT_EASE;
+    	}
+    	settings_changed = true;
+    } else {
     	preferences.getBytes("smooth",servo_ease,NUM_SERVOS);
+    }
+
+   if(preferences.getBytesLength("speed") != NUM_SERVOS) {
+    	for (int i = 0; i < NUM_SERVOS; i++) {
+     		servo_speed[i] = DEFAULT_SPEED;
+    	}
+    	settings_changed = true;
+    } else {
     	preferences.getBytes("speed",servo_speed,NUM_SERVOS);
     }
+ 
+   if(preferences.getBytesLength("ease_distance") != NUM_SERVOS) {
+    	for (int i = 0; i < NUM_SERVOS; i++) {
+    		servo_ease_distance[i] = DEFAULT_EASE_DISTANCE;
+    	}
+    	settings_changed = true;
+    } else {
+    	preferences.getBytes("ease_distance",servo_ease_distance,NUM_SERVOS);
+    }
+   if(preferences.getBytesLength("channel") != NUM_SERVOS) {
+    	for (int i = 0; i < NUM_SERVOS; i++) {
+			servo_channel[i] = i;
+    	}
+    	settings_changed = true;
+    } else {
+    	preferences.getBytes("channel",servo_channel,NUM_SERVOS);
+    }
+
+	servo_channels_messed_up = false;
+	for (int i = 0; i < NUM_SERVOS; i++) {
+		if (servo_channel[i] != i ) servo_channels_messed_up = true;
+	}
+	if (servo_channels_messed_up) Serial.println("Messed up Servos");
 
 	preferences.end();
 	
@@ -678,7 +813,10 @@ void write_settings() {
     	preferences.putBytes("startup",servo_startup,NUM_SERVOS);
     	preferences.putBytes("smooth",servo_ease,NUM_SERVOS);
     	preferences.putBytes("speed",servo_speed,NUM_SERVOS);
+    	preferences.putBytes("ease_distance",servo_ease_distance,NUM_SERVOS);
+    	preferences.putBytes("channel",servo_channel,NUM_SERVOS);
 	preferences.end();
+	Serial.println("Settings written");
 }
 //----------------------------------------------------------------------------------------
 //																				NOTES
@@ -861,11 +999,12 @@ void setup(){
   // Wait for servo to reach start position.
     delay(500);
 
-	t.every(20,service_servos);
-	t.every(25,check_dmx);
+	t.every(10,service_servos);
+	t.every(10,check_dmx);
 	t.every(1,check_buttons);
 	t.every(20,update_leds);
 	t.every(1000,check_dmx_detach);
+	t.every(30000,check_settings_changed);
 	digitalWrite(LED_BUILTIN,LOW);
 	Serial.println("Setup finished");
 }
