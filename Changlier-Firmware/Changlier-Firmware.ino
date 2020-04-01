@@ -156,6 +156,22 @@ uint8_t midiPacket[] = {
 //========================================================================================
 //----------------------------------------------------------------------------------------
 //																				IMPLEMENTATION
+
+void park() {
+	for (int i = 0; i< NUM_SERVOS; i++) {
+		if (!myservo[i].attached()) myservo[i].attach(servo_pin[i]);
+		if (servo_ease[i] < 3) set_easing(i, 3);
+		myservo[i].easeTo(servo_startup[i]);
+	}
+	
+	updateAndWaitForAllServosToStop();
+
+	for (int i = 0; i< NUM_SERVOS; i++) {	
+		set_easing(i, servo_ease[i]);
+		dmx_detach[i] = DMX_DETACH_TIME;
+	}
+}
+
 void send_servo_data(int channel) {
 	const int send_servo_data_reply_length = 15;
 	uint8_t packet[send_servo_data_reply_length];
@@ -373,7 +389,8 @@ void set_param(int channel,int param, int value) {
 			break;
 			
 		case PARAM_reset_all:
-			generate_default_values();
+			if (value == 1 ) park();
+			if (value == 20 ) generate_default_values();
 			break;
 	}
 	settings_changed = true;
