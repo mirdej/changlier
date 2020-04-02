@@ -157,19 +157,27 @@ uint8_t midiPacket[] = {
 //----------------------------------------------------------------------------------------
 //																				IMPLEMENTATION
 
-void park() {
+void park(boolean detach) {
 	for (int i = 0; i< NUM_SERVOS; i++) {
 		if (!myservo[i].attached()) myservo[i].attach(servo_pin[i]);
-		if (servo_ease[i] < 3) set_easing(i, 3);
-		myservo[i].easeTo(servo_startup[i]);
+		if (servo_ease[i] < 4) set_easing(i, 4);
+		myservo[i].startEaseTo(servo_startup[i], servo_speed[i] / 2);
 	}
 	
-	updateAndWaitForAllServosToStop();
+	boolean moving = true;
+	while(moving) {
+		moving = false;
+		for (int i = 0; i < NUM_SERVOS; i++) {
+			myservo[i].update();
+			if (myservo[i].isMoving()) moving = true;
+		}
+	}
 
 	for (int i = 0; i< NUM_SERVOS; i++) {	
 		set_easing(i, servo_ease[i]);
 		dmx_detach[i] = DMX_DETACH_TIME;
 	}
+	if (detach) detach_all();
 }
 
 void detach_all() {
@@ -401,9 +409,10 @@ void set_param(int channel,int param, int value) {
 			break;
 			
 		case PARAM_reset_all:
-			if (value == 1 ) park();
+			if (value == 1 ) park(0);
 			if (value == 2 ) attach_all();
 			if (value == 3 ) detach_all();
+			if (value == 4 ) park(1);
 			if (value == 20 ) generate_default_values();
 			break;
 	}
