@@ -1,4 +1,4 @@
-const char * version = "2020-04-01.2";
+const char * version = "2020-04-06.0";
 
 //----------------------------------------------------------------------------------------
 //
@@ -98,7 +98,7 @@ const char	PIN_PIXELS				= 13;
 const char 	NUM_SERVOS				= 6;
 const char	NUM_NOTES				= 4;
 const char	NUM_PIXELS				= 6;
-
+const char	PIN_STATUS_PIX			= 1;
 
 
 //========================================================================================
@@ -863,7 +863,7 @@ void write_settings() {
 
 void check_buttons() {
 	static char old_button[NUM_NOTES];
-	static char debounce[NUM_NOTES];
+	static int debounce[NUM_NOTES];
 	
 	for (int i = 0; i < NUM_NOTES; i++) {
 		if (debounce[i]) {
@@ -975,11 +975,11 @@ void setup(){
 
 	Serial.println("Startup");
 	FastLED.addLeds<SK6812, PIN_PIXELS, RGB>(pixels, NUM_PIXELS);
-//FastLED.addLeds<SK6812, 1, RGB>(statusled, 1);
+	FastLED.addLeds<SK6812, PIN_STATUS_PIX, RGB>(statusled, 1);
 
 	for (int hue = 0; hue < 360; hue++) {
     	fill_rainbow( pixels, NUM_PIXELS, hue, 7);
-//		statusled[0].setHSV(hue,127,127);
+		statusled[0].setHSV(hue,127,127);
 	    delay(3);
     	FastLED.show(); 
   	}
