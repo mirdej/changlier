@@ -1,4 +1,4 @@
-const char * version = "2020-04-06.0";
+const char * version = "2020-04-07.0";
 
 //----------------------------------------------------------------------------------------
 //
@@ -14,7 +14,7 @@ const char * version = "2020-04-06.0";
 //
 //----------------------------------------------------------------------------------------
 
-#include <dmx.h>
+#include <esp32-dmx-rx.h>
 
 #include <Preferences.h>
 //#include <ESP32Servo.h>		//version 0.6.3
@@ -85,6 +85,10 @@ const int PARAM_reset_all = 11;
 #define DEFAULT_SPEED	120
 #define DEFAULT_EASE_DISTANCE 36
 
+#define PARKING_MODE_NONE	0
+#define PARKING_MODE_PARK	1
+#define PARKING_MODE_DODO	2
+
 
 
 #define SERVICE_UUID        "03b80e5a-ede8-4b33-a751-6ce34ec4c700"
@@ -99,7 +103,7 @@ const char 	NUM_SERVOS				= 6;
 const char	NUM_NOTES				= 4;
 const char	NUM_PIXELS				= 6;
 const char	PIN_STATUS_PIX			= 1;
-
+const char 	PIN_V_SENS				= 35;
 
 //========================================================================================
 //----------------------------------------------------------------------------------------
@@ -119,6 +123,7 @@ int										dmx_address;
 float	servo_position[NUM_SERVOS];
 
 unsigned char servo_detach;
+unsigned  parking_mode;
 
 unsigned int dmx_detach[DMX_CHANNELS];
 
@@ -164,20 +169,8 @@ void park(boolean detach) {
 		myservo[i].startEaseTo(servo_startup[i], servo_speed[i] / 2);
 	}
 	
-	boolean moving = true;
-	while(moving) {
-		moving = false;
-		for (int i = 0; i < NUM_SERVOS; i++) {
-			myservo[i].update();
-			if (myservo[i].isMoving()) moving = true;
-		}
-	}
-
-	for (int i = 0; i< NUM_SERVOS; i++) {	
-		set_easing(i, servo_ease[i]);
-		dmx_detach[i] = DMX_DETACH_TIME;
-	}
-	if (detach) detach_all();
+	if (detach)		parking_mode = PARKING_MODE_DODO;
+	else 			parking_mode = PARKING_MODE_PARK;
 }
 
 void detach_all() {
@@ -906,9 +899,27 @@ void update_leds() {
 //																				SERVOS
 
 void service_servos(){
-	for (int i = 0; i < NUM_SERVOS; i++) {
-		if (servo_ease[i]) {
+	if (parking_mode == PARKING_MODE_NONE) {
+		for (int i = 0; i < NUM_SERVOS; i++) {
+			if (servo_ease[i]) {
+				myservo[i].update();
+			}
+		}
+	} else {
+		boolean finished_parking = true;
+		for (int i = 0; i < NUM_SERVOS; i++) {
 			myservo[i].update();
+			if (myservo[i].isMoving()) finished_parking = false;
+		}
+
+		if (finished_parking) {
+			for (int i = 0; i< NUM_SERVOS; i++) {	
+				set_easing(i, servo_ease[i]);
+				dmx_detach[i] = DMX_DETACH_TIME;
+			}
+		
+			if (parking_mode == PARKING_MODE_DODO) detach_all();
+			parking_mode = PARKING_MODE_NONE;
 		}
 	}
 }
@@ -958,6 +969,15 @@ void check_dmx_detach(void) {
 	for (int i = 0; i < DMX_CHANNELS; i++) {
 		if (dmx_detach[i]) dmx_detach[i]--;
 	}
+}
+
+
+//----------------------------------------------------------------------------------------
+//																				Check Battery voltage
+
+void check_battery(void) {
+	int battery_state = analogRead(PIN_V_SENS);
+	Serial.println(battery_state);
 }
 
 //========================================================================================
@@ -1043,6 +1063,7 @@ void setup(){
 	t.every(10,check_dmx);
 	t.every(1,check_buttons);
 	t.every(20,update_leds);
+	t.every(200,check_battery);
 	t.every(1000,check_dmx_detach);
 	t.every(30000,check_settings_changed);
 	digitalWrite(LED_BUILTIN,LOW);
