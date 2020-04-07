@@ -217,7 +217,8 @@
 						"speed" : 8,
 						"ease_distance" : 9,
 						"channel" : 10,
-						"reset_all" : 11
+						"reset_all" : 11,
+						"battery" : 12
 					}
 ,
 					"id" : "obj-81",

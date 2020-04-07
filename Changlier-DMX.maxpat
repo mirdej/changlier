@@ -9,7 +9,7 @@
 			"modernui" : 1
 		}
 ,
-		"rect" : [ 0.0, 79.0, 1296.0, 690.0 ],
+		"rect" : [ 0.0, 79.0, 1971.0, 887.0 ],
 		"bgcolor" : [ 0.32549, 0.345098, 0.372549, 1.0 ],
 		"editing_bgcolor" : [ 0.239216, 0.254902, 0.278431, 1.0 ],
 		"bglocked" : 0,
@@ -359,6 +359,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-201",
 					"maxclass" : "textbutton",
@@ -4390,6 +4391,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-199",
 					"maxclass" : "textbutton",
@@ -4420,6 +4422,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-197",
 					"maxclass" : "textbutton",
@@ -4450,6 +4453,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-195",
 					"maxclass" : "textbutton",
@@ -4480,6 +4484,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-193",
 					"maxclass" : "textbutton",
@@ -4577,6 +4582,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-185",
 					"maxclass" : "textbutton",
@@ -5057,7 +5063,7 @@
 					"presentation" : 1,
 					"presentation_rect" : [ 113.75, 23.5, 494.0, 21.0 ],
 					"style" : "",
-					"text" : "Found USB device www.anyma.ch/udmx"
+					"text" : "Could not find USB device www.anyma.ch/udmx"
 				}
 
 			}
@@ -5749,6 +5755,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontsize" : 14.0,
 					"id" : "obj-162",
 					"maxclass" : "textbutton",
@@ -6108,8 +6115,7 @@
 					"patching_rect" : [ 1654.5, 918.0, 113.0, 25.0 ],
 					"presentation" : 1,
 					"presentation_rect" : [ 790.0, 91.0, 113.0, 18.0 ],
-					"style" : "",
-					"text" : "Manu"
+					"style" : ""
 				}
 
 			}
@@ -6121,7 +6127,7 @@
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 919.0, 45.0, 324.0, 28.0 ],
+					"patching_rect" : [ 1350.0, 37.0, 324.0, 28.0 ],
 					"presentation" : 1,
 					"presentation_rect" : [ 965.0, 86.0, 324.0, 28.0 ],
 					"style" : "",
@@ -8810,8 +8816,7 @@
 					"patching_rect" : [ 255.75, 660.0, 984.0, 21.0 ],
 					"presentation" : 1,
 					"presentation_rect" : [ 20.0, 129.5, 204.0, 21.0 ],
-					"style" : "",
-					"text" : "Firmware version: 2020-04-01.2"
+					"style" : ""
 				}
 
 			}
@@ -8852,8 +8857,7 @@
 					"patching_rect" : [ 298.0, 691.0, 150.0, 63.0 ],
 					"presentation" : 1,
 					"presentation_rect" : [ 21.0, 81.0, 719.0, 63.0 ],
-					"style" : "",
-					"text" : "Manu"
+					"style" : ""
 				}
 
 			}
@@ -9027,7 +9031,7 @@
 , 			{
 				"box" : 				{
 					"id" : "obj-35",
-					"items" : "Manu",
+					"items" : "Impulse-Tester",
 					"maxclass" : "umenu",
 					"numinlets" : 1,
 					"numoutlets" : 3,
@@ -9260,6 +9264,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-49",
 					"maxclass" : "textbutton",

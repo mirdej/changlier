@@ -74,6 +74,7 @@ const int PARAM_speed = 8;
 const int PARAM_ease_distance = 9;
 const int PARAM_channel = 10;
 const int PARAM_reset_all = 11;
+const int PARAM_battery = 12;
 
 
 #define DEFAULT_MINIMUM		0
@@ -88,8 +89,6 @@ const int PARAM_reset_all = 11;
 #define PARKING_MODE_NONE	0
 #define PARKING_MODE_PARK	1
 #define PARKING_MODE_DODO	2
-
-
 
 #define SERVICE_UUID        "03b80e5a-ede8-4b33-a751-6ce34ec4c700"
 #define CHARACTERISTIC_UUID "7772e5db-3868-4112-a1a9-f2669d106bf3"
@@ -133,6 +132,11 @@ unsigned int debounce_time;
 
 BLECharacteristic *pCharacteristic;
 bool deviceConnected = false;
+
+int battery_max_ad, battery_min_ad;
+int battery_low_ad;
+int battery_monitor_interval;
+long battery_last_check;
 
 boolean isConnected;
 boolean leds_changed;
@@ -320,6 +324,22 @@ void get_param(int channel, int param){
 		case  PARAM_channel : 
 			return_val = servo_channel[channel] + 1;
 			break;
+		case PARAM_battery:
+			switch (channel) {
+				case 0:		
+					return_val = battery_min_ad;
+					break;
+				case 1:		
+					return_val = battery_max_ad;
+					break;
+				case 2:		
+					return_val = battery_low_ad;
+					break;
+				case 3:		
+					return_val = battery_monitor_interval;
+					break;
+			}
+			break;
 		default:
 			return;
 	}
@@ -408,6 +428,22 @@ void set_param(int channel,int param, int value) {
 			if (value == 4 ) park(1);
 			if (value == 20 ) generate_default_values();
 			break;
+		case PARAM_battery:
+			switch (channel) {
+				case 0:		
+					battery_min_ad = value;
+					break;
+				case 1:		
+					battery_max_ad = value;
+					break;
+				case 2:		
+					battery_low_ad = value;
+					break;
+				case 3:		
+					battery_monitor_interval = value;
+					break;
+			}
+
 	}
 	settings_changed = true;
 }
@@ -746,6 +782,11 @@ void read_preferences() {
 	dmx_address = preferences.getInt("dmx_address",1);
 	debounce_time = preferences.getInt("debounce_time",50);
 
+	battery_max_ad = preferences.getInt("battery_max_ad",2048);
+	battery_min_ad = preferences.getInt("battery_min_ad",1024);
+	battery_low_ad = preferences.getInt("battery_low_ad",1600);
+	battery_monitor_interval  = preferences.getInt("battery_monitor_interval",200);
+
    if(preferences.getBytesLength("minima") != NUM_SERVOS) {
     	for (int i = 0; i < NUM_SERVOS; i++) {
     		servo_minimum[i] = DEFAULT_MINIMUM;
@@ -848,6 +889,12 @@ void write_settings() {
     	preferences.putBytes("speed",servo_speed,NUM_SERVOS);
     	preferences.putBytes("ease_distance",servo_ease_distance,NUM_SERVOS);
     	preferences.putBytes("channel",servo_channel,NUM_SERVOS);
+    	
+		preferences.putInt("battery_max_ad",battery_max_ad);
+		preferences.putInt("battery_min_ad",battery_min_ad);
+		preferences.putInt("battery_low_ad",battery_low_ad);
+		preferences.putInt("battery_monitor_interval",battery_monitor_interval);
+
 	preferences.end();
 	Serial.println("Settings written");
 }
@@ -977,7 +1024,18 @@ void check_dmx_detach(void) {
 
 void check_battery(void) {
 	int battery_state = analogRead(PIN_V_SENS);
-	Serial.println(battery_state);
+	battery_state = map (battery_state,battery_min_ad,battery_max_ad,1,127);
+	if (battery_state > 127) battery_state = 127;
+	if (battery_state < 0) battery_state = 0;
+	
+	midiPacket[2] 	= 0xB0; 
+	midiPacket[3] 	= 16;
+	midiPacket[4] 	= battery_state;    // velocity
+	
+	pCharacteristic->setValue(midiPacket, 5); // packet, length in bytes
+	pCharacteristic->notify();
+
+	battery_last_check = millis();
 }
 
 //========================================================================================
@@ -995,11 +1053,11 @@ void setup(){
 
 	Serial.println("Startup");
 	FastLED.addLeds<SK6812, PIN_PIXELS, RGB>(pixels, NUM_PIXELS);
-	FastLED.addLeds<SK6812, PIN_STATUS_PIX, RGB>(statusled, 1);
+//	FastLED.addLeds<SK6812, PIN_STATUS_PIX, RGB>(statusled, 1);
 
 	for (int hue = 0; hue < 360; hue++) {
     	fill_rainbow( pixels, NUM_PIXELS, hue, 7);
-		statusled[0].setHSV(hue,127,127);
+	//	statusled[0].setHSV(hue,127,127);
 	    delay(3);
     	FastLED.show(); 
   	}
@@ -1063,7 +1121,6 @@ void setup(){
 	t.every(10,check_dmx);
 	t.every(1,check_buttons);
 	t.every(20,update_leds);
-	t.every(200,check_battery);
 	t.every(1000,check_dmx_detach);
 	t.every(30000,check_settings_changed);
 	digitalWrite(LED_BUILTIN,LOW);
@@ -1078,7 +1135,12 @@ void setup(){
  
 void loop(){
 	t.update();
+	
     if ((millis() - last_packet) > 200) {digitalWrite(LED_BUILTIN,LOW);}
     else {digitalWrite(LED_BUILTIN,HIGH); }
+
+	if (battery_monitor_interval) {
+	    if ((millis() - battery_last_check) > battery_monitor_interval) { check_battery(); }
+	}
 
 }
