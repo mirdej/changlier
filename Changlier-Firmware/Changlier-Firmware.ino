@@ -15,7 +15,9 @@ const char * version = "2020-04-11.1";
 //----------------------------------------------------------------------------------------
 
 #include "Changlier.h"
+#include "ChanglierSYSEX.h"
 #include "ChanglierOTA.h"
+#include "ChanglierBLE.h"
 
 // .............................................................................Pins 
 
@@ -93,6 +95,62 @@ uint8_t midiPacket[] = {
 //----------------------------------------------------------------------------------------
 //																				IMPLEMENTATION
 
+
+//----------------------------------------------------------------------------------------
+//																				MIDI Callbacks
+
+void handle_control_change(char ctl, char val) {
+	char idx = ctl - 1;
+	if (val > 127)
+
+	if (idx < DMX_CHANNELS && idx >= 0) dmx_detach[idx] = DMX_DETACH_TIME;
+
+	if (idx >= 0) {
+		if (idx < NUM_SERVOS) {					// channels 1 - 6:	 	control servos
+			//servo_val_raw[idx] = val;
+			servo_control(idx,val);
+		} else if (idx == 6) { 
+			if (hardware_version >= HARDWARE_VERSION_20200303_VD) {
+				if (val > 64) {
+					digitalWrite(PIN_ENABLE_SERVOS1_4,HIGH);
+				} else {
+					digitalWrite(PIN_ENABLE_SERVOS1_4,LOW);
+				}	
+			}				
+		} else {
+			led_control(idx,val);
+		}
+	}
+
+}
+
+
+void handle_note_on(char note, char velocity) {
+	int idx = note - 1;
+	char val = velocity;
+	if (val > 127) val = 127;
+	if (idx >= 10 && idx < 16) {
+		dmx_detach[idx] = DMX_DETACH_TIME;
+		led_control(idx,val);
+	}
+}
+
+
+
+void handle_note_off(char note, char velocity) {
+	int idx = note - 1;
+	char val = velocity;
+	if (val > 127) val = 127;
+	if (idx >= 10 && idx < 16) {
+		dmx_detach[idx] = DMX_DETACH_TIME;
+		led_control(idx,0);
+	}
+}
+
+//----------------------------------------------------------------------------------------
+//																				Control
+
+
 void park(boolean detach) {
 	for (int i = 0; i< NUM_SERVOS; i++) {
 		if (!myservo[i].attached()) myservo[i].attach(servo_pin[i]);
@@ -114,292 +172,6 @@ void attach_all() {
 	for (int i = 0; i< NUM_SERVOS; i++) {
 		myservo[i].attach(servo_pin[i]);
 	}
-}
-
-void send_servo_data(int channel) {
-	const int send_servo_data_reply_length = 15;
-	uint8_t packet[send_servo_data_reply_length];
-	
-//	Serial.print("Send: ");
-	
-	packet[0] = 0x80;  // header
-	packet[1] = 0x80;  // timestamp, not implemented 
-	packet[2] = 0xF0;  // SYSEX
-	packet[3] = 0x7D;  // Homebrew Device
-	
-	packet[4] = SYSEX_SERVODATA;
-	packet[5] = 7;					//length
-	packet[6] = channel;
-	packet[7] = servo_minimum[channel] >> 1;
-	packet[8] = servo_minimum[channel] & 1;
-	packet[9] = myservo[channel].read() >> 1;
-	packet[10] = myservo[channel].read() & 1;
-	packet[11] = servo_maximum[channel] >> 1;
-	packet[12] = servo_maximum[channel] & 1;
-	
-	packet[13] = 0x80; // fake checksum
-	packet[14] = 0xF7; 	// end of sysex
-
-   pCharacteristic->setValue(packet, send_servo_data_reply_length); // packet, length in bytes)
-   pCharacteristic->notify();
-}
-
-void send_version() {
-	const int send_version_reply_length = 21;
-	uint8_t packet[send_version_reply_length];
-	
-//	Serial.print("Send: ");
-	
-	packet[0] = 0x80;  // header
-	packet[1] = 0x80;  // timestamp, not implemented 
-	packet[2] = 0xF0;  // SYSEX
-	packet[3] = 0x7D;  // Homebrew Device
-	
-	packet[4] = SYSEX_VERSION_DATA;
-	packet[5] = 12;					//length
-	
-	for (int i = 0; i < 12; i++) {
-		packet[6+i] = version[i];
-	}
-		
-	packet[19] = 0x80; // fake checksum
-	packet[20] = 0xF7; 	// end of sysex
-
-   pCharacteristic->setValue(packet, send_version_reply_length); // packet, length in bytes)
-   pCharacteristic->notify();
-}
-
-
-void send_dmx_address() {
-	const int reply_length = 10;
-	uint8_t packet[reply_length];
-	
-	Serial.println("Send DMX Address");
-	
-	packet[0] = 0x80;  // header
-	packet[1] = 0x80;  // timestamp, not implemented 
-	packet[2] = 0xF0;  // SYSEX
-	packet[3] = 0x7D;  // Homebrew Device
-	
-	packet[4] = SYSEX_DMX_ADDRESS;
-	packet[5] = 2;					//length
-	
-	packet[6] = (dmx_address >> 7) & 0x7F;
-	packet[7] = dmx_address & 0x7F;
-		
-	packet[8] = 0x80; // fake checksum
-	packet[9] = 0xF7; 	// end of sysex
-
-   pCharacteristic->setValue(packet, reply_length); // packet, length in bytes)
-   pCharacteristic->notify();
-}
-
-
-void send_debounce_time() {
-	const int reply_length = 10;
-	uint8_t packet[reply_length];
-	
-	Serial.println("Send Debounce Time");
-	
-	packet[0] = 0x80;  // header
-	packet[1] = 0x80;  // timestamp, not implemented 
-	packet[2] = 0xF0;  // SYSEX
-	packet[3] = 0x7D;  // Homebrew Device
-	
-	packet[4] = SYSEX_DEBOUNCE;
-	packet[5] = 2;					//length
-	
-	packet[6] = (debounce_time >> 7) & 0x7F;
-	packet[7] = debounce_time & 0x7F;
-		
-	packet[8] = 0x80; // fake checksum
-	packet[9] = 0xF7; 	// end of sysex
-
-   pCharacteristic->setValue(packet, reply_length); // packet, length in bytes)
-   pCharacteristic->notify();
-}
-
-
-void get_param(int channel, int param){
-//	Serial.print("Get Param ");	Serial.print(param);	Serial.print(" for channel ");Serial.println(channel);
-	int return_val;
-	switch (param) {
-		case  PARAM_min : 
-			return_val = servo_minimum[channel];
-			break;
-		case  PARAM_max : 
-			return_val = servo_maximum[channel];
-			break;
-		case  PARAM_init : 
-			return_val = servo_startup[channel];
-			break;
-		case  PARAM_detach_lo : 
-			return_val = servo_detach_minimum[channel];
-			break;
-		case  PARAM_detach_hi : 
-			return_val = servo_detach_maximum[channel];
-			break;
-		case  PARAM_ease_func : 
-			return_val = servo_ease[channel];
-			break;
-		case  PARAM_speed : 
-			return_val = servo_speed[channel];
-			break;
-		case  PARAM_ease_distance : 
-			return_val = servo_ease_distance[channel];
-			break;
-		case  PARAM_channel : 
-			return_val = servo_channel[channel] + 1;
-			break;
-		case PARAM_battery:
-			switch (channel) {
-				case 0:		
-					return_val = battery_min_ad;
-					break;
-				case 1:		
-					return_val = battery_max_ad;
-					break;
-				case 2:		
-					return_val = battery_low_ad;
-					break;
-				case 3:		
-					return_val = battery_monitor_interval;
-					break;
-			}
-			break;
-		default:
-			return;
-	}
-
-	const int reply_length = 12;
-	uint8_t packet[reply_length];
-
-	packet[0] = 0x80;  // header
-	packet[1] = 0x80;  // timestamp, not implemented 
-	packet[2] = 0xF0;  // SYSEX
-	packet[3] = 0x7D;  // Homebrew Device
-	
-	packet[4] = SYSEX_PARAM_DATA;
-	packet[5] = 4;					//length
-	
-	packet[6] = channel + 1;
-	packet[7] = param;
-
-	packet[8] = (return_val >> 7) & 0x7F;
-	packet[9] = return_val & 0x7F;
-
-	packet[10] = 0x80; // fake checksum
-	packet[11] = 0xF7; 	// end of sysex
-
-   pCharacteristic->setValue(packet, reply_length); // packet, length in bytes)
-   pCharacteristic->notify();
-
-}
-
-void set_param(int channel,int param, int value) {
-	//Serial.print("Set Param ");	Serial.print(param);	Serial.print(" for channel ");Serial.print(channel);Serial.print(" to value ");Serial.println(value);
-
-	switch (param) {
-		case  PARAM_min : 
-			if (value > 180) value = 180;
-			servo_minimum[channel] = value;
-			break;
-		case  PARAM_max : 
-			if (value > 180) value = 180;
-			servo_maximum[channel] = value;
-			break;
-		case  PARAM_init : 
-			if (value > 180) value = 180;
-			servo_startup[channel] = value;
-			dmx_detach[channel] = DMX_DETACH_TIME;
-			myservo[channel].write(value);
-			break;
-		case  PARAM_detach_lo : 
-			if (value > 127) value = 127;
-			servo_detach_minimum[channel] = value;
-			break;
-		case  PARAM_detach_hi : 
-			if (value > 127) value = 127;
-			servo_detach_maximum[channel] = value;
-			break;
-		case  PARAM_ease_func :
-			if (value > 4) value = 4;
-			servo_ease[channel] = value;
-			set_easing(channel,value);
-			break;
-		case  PARAM_speed : 
-			if (value > 255) value = 255;
-			servo_speed[channel] = value;
-			break;
-		case  PARAM_ease_distance : 
-			if (value > 100) value = 100;
-			if (value > 5) value = 5;
-			servo_ease_distance[channel] = value;
-			break;
-		case  PARAM_channel : 
-			if (value > 6) value = 6;
-			if (value < 1) value = 1;
-			servo_channel[channel] = value - 1;
-			servo_channels_messed_up = false;
-			for (int i = 0; i < NUM_SERVOS; i++) {
-				if (servo_channel[i] != i ) servo_channels_messed_up = true;
-			}
-			if (servo_channels_messed_up) Serial.println("Messed up Servos");
-
-			break;
-			
-		case PARAM_reset_all:
-			if (value == 1 ) park(0);
-			if (value == 2 ) attach_all();
-			if (value == 3 ) detach_all();
-			if (value == 4 ) park(1);
-			if (value == 20 ) generate_default_values();
-			break;
-		case PARAM_battery:
-			switch (channel) {
-				case 0:		
-					battery_min_ad = value;
-					break;
-				case 1:		
-					battery_max_ad = value;
-					break;
-				case 2:		
-					battery_low_ad = value;
-					break;
-				case 3:		
-					battery_monitor_interval = value;
-					break;
-			}
-
-	}
-	settings_changed = true;
-}
-
-
-void check_settings_changed() {
-	if 	(settings_changed) write_settings();
-	settings_changed = false;
-}
-
-void set_easing(char chan, char val) {
-	
-	switch (val) {
-		case 1:
-			myservo[chan].setEasingType(EASE_LINEAR);
-			break;
-		case 2:
-			myservo[chan].setEasingType(EASE_QUADRATIC_IN_OUT);
-			break;
-		case 3:
-			myservo[chan].setEasingType(EASE_CUBIC_IN_OUT);
-			break;
-		case 4:
-			myservo[chan].setEasingType(EASE_QUARTIC_IN_OUT);
-			break;
-		default:
-			break;
-	}
-	
 }
 
 void led_control(char idx, char val) {
@@ -452,438 +224,6 @@ void servo_control(char chan, char val){
 
 }
 
-void set_limits(char channel) {
-	if (channel < NUM_SERVOS) {
-		Serial.print("Servo ");
-		Serial.print(channel + 1, DEC);
-		Serial.print(" limits: ");
-		Serial.print(servo_minimum[channel], DEC);
-		Serial.print(" - ");
-		Serial.print(servo_maximum[channel], DEC);
-		Serial.println();
-	}
-	preferences.begin("changlier", false);
-	preferences.putBytes("minima",servo_minimum,NUM_SERVOS);
-	preferences.putBytes("maxima",servo_maximum,NUM_SERVOS);
-	preferences.end();
-}
-
-class MyServerCallbacks: public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer) {
-      deviceConnected = true;
-    };
-
-    void onDisconnect(BLEServer* pServer) {
-      deviceConnected = false;
-    }
-};
-
-class MyCallbacks: public BLECharacteristicCallbacks {
-
-    void onWrite(BLECharacteristic *pCharacteristic) {
-      std::string rxValue = pCharacteristic->getValue();
-		unsigned int temp ;
-      if (rxValue.length() > 0) {
-	      last_packet = millis();
-//------------------------------						// Control Change
-		if ((rxValue[2] >> 4 ) == 0x0B) {				
-			int idx = rxValue[3]-1;
-			char val = rxValue[4];
-			if (val > 127) val = 127;
-			
-			if (idx < DMX_CHANNELS && idx >= 0) dmx_detach[idx] = DMX_DETACH_TIME;
-
-			if (idx >= 0) {
-				if (idx < NUM_SERVOS) {					// channels 1 - 6:	 	control servos
-					//servo_val_raw[idx] = val;
-					servo_control(idx,val);
-				} else if (idx == 6) { 
-					if (hardware_version >= HARDWARE_VERSION_20200303_VD) {
-						if (val > 64) {
-							digitalWrite(PIN_ENABLE_SERVOS1_4,HIGH);
-						} else {
-							digitalWrite(PIN_ENABLE_SERVOS1_4,LOW);
-						}	
-					}				
-				} else {
-					led_control(idx,val);
-				}
-			}
-		} 
-		
-//------------------------------						// Note ON
-		if ((rxValue[2] >> 4 ) == 0x09) {				
-			int idx = rxValue[3]-1;
-			char val = rxValue[4];
-			if (val > 127) val = 127;
-			if (idx >= 10 && idx < 16) {
-				dmx_detach[idx] = DMX_DETACH_TIME;
-				led_control(idx,val);
-			}
-		} 
-//------------------------------						// Note OFF
-		if ((rxValue[2] >> 4 ) == 0x08) {				
-			int idx = rxValue[3]-1;
-			char val = rxValue[4];
-			if (val > 127) val = 127;
-			if (idx >= 10 && idx < 16) {
-				dmx_detach[idx] = DMX_DETACH_TIME;
-				led_control(idx,0);
-			}
-		} 
-
-//------------------------------					// SYSEX	
-		if (rxValue[2] == 0xF0) {					
-			if (rxValue[3] == 0x7D) {				// Homebrew Device
-
-				char command = rxValue[4];
-				char len = rxValue[5];
-				char channel = rxValue[6]-1;
-				String new_name = "";
-
-				switch (command) {
-					case SYSEX_NOP:
-						Serial.print("NOP");
-						break;								
-					case SYSEX_NAMECHANGE:
-						Serial.println("Attempt name change");
-						if (len > rxValue.length() - 8) {
-							Serial.println("PARSE ERROR: Incorrect length");
-							Serial.print(len,DEC);
-							Serial.print(" ");
-							Serial.print(rxValue.length(),DEC);
-
-						} else {
-							for (int i = 0; i < len; i++) {
-								char in = rxValue[i + 6];
-								if ((in > 31) && (in < 123)) {
-									new_name += in;
-								} else {
-									Serial.println("PARSE ERROR: Forbidden char");
-								}
-							}
-							Serial.print("Change name to: ");
-							Serial.println(new_name);
-							preferences.begin("changlier", false);
-							preferences.putString("hostname",new_name);
-							preferences.end();
-						}
-						break;
-					case SYSEX_SET_SSID:
-						if (len > rxValue.length() - 8) {
-							Serial.println("PARSE ERROR: Incorrect length");
-							Serial.print(len,DEC);
-							Serial.print(" ");
-							Serial.print(rxValue.length(),DEC);
-
-						} else {
-							for (int i = 0; i < len; i++) {
-								char in = rxValue[i + 6];
-								if ((in > 31) && (in < 123)) {
-									new_name += in;
-								} else {
-									Serial.println("PARSE ERROR: Forbidden char");
-								}
-							}
-							preferences.begin("changlier", false);
-							preferences.putString("ssid",new_name);
-							preferences.end();
-						}
-						break;
-					case SYSEX_SET_PASSWORD:
-						if (len > rxValue.length() - 8) {
-							Serial.println("PARSE ERROR: Incorrect length");
-							Serial.print(len,DEC);
-							Serial.print(" ");
-							Serial.print(rxValue.length(),DEC);
-
-						} else {
-							for (int i = 0; i < len; i++) {
-								char in = rxValue[i + 6];
-								if ((in > 31) && (in < 123)) {
-									new_name += in;
-								} else {
-									Serial.println("PARSE ERROR: Forbidden char");
-								}
-							}
-							preferences.begin("changlier", false);
-							preferences.putString("password",new_name);
-							preferences.end();
-						}
-						break;
-					case SYSEX_START_WIFI:
-						enable_wifi();
-					case SYSEX_CLEAR_MIN_MAX:
-						if (channel < NUM_SERVOS) {
-								servo_minimum[channel] = 0;
-								servo_maximum[channel] = 180;
-								set_limits(channel);
-						}
-						break;
-					case SYSEX_SET_MINIMUM_HERE:
-						if (channel < NUM_SERVOS) {
-							servo_minimum[channel] = myservo[channel].read();
-							set_limits(channel);
-						}
-						break;
-					case SYSEX_SET_MAXIMUM_HERE:
-						if (channel < NUM_SERVOS) {
-							servo_maximum[channel] = myservo[channel].read();
-							set_limits(channel);
-						}
-						break;
-					case SYSEX_INVERT_MIN_MAX:
-						if (channel < NUM_SERVOS) {
-							char old_min = servo_minimum[channel];
-							servo_minimum[channel] = servo_maximum[channel];
-							servo_maximum[channel] = old_min;
-							set_limits(channel);
-						}
-						break;
-					case SYSEX_SEND_SERVODATA:
-						if (channel < NUM_SERVOS) {
-							send_servo_data(channel);
-						}
-						break;
-					case SYSEX_GET_VERSION:
-						send_version();
-						break;
-					case SYSEX_GET_DMX_ADDRESS:
-						send_dmx_address();
-						break;
-					case SYSEX_GET_DEBOUNCE:
-						send_debounce_time();
-						break;
-					case SYSEX_SET_DMX_ADDRESS:
-						dmx_address = rxValue[6] << 7;
-						dmx_address |= rxValue[7];
-						if (dmx_address > 490) dmx_address = 490;
-						Serial.print("DMX Address: ");
-						Serial.println(dmx_address);
-						
-						preferences.begin("changlier", false);
-						preferences.putInt("dmx_address",dmx_address);
-						preferences.end();
-
-						send_dmx_address();
-						break;
-					case SYSEX_SET_DEBOUNCE:
-						debounce_time = rxValue[6] << 7;
-						debounce_time |= rxValue[7];
-
-						Serial.print("Debounce Time: ");
-						Serial.println(debounce_time);
-						
-						preferences.begin("changlier", false);
-						preferences.putInt("debounce_time",debounce_time);
-						preferences.end();
-
-						send_debounce_time();
-						break;
-					case SYSEX_GET_PARAM:
-						get_param(channel,rxValue[7]);
-						break;
-					case SYSEX_SET_PARAM:
-						set_param(channel,rxValue[7], (rxValue[8] << 7) | rxValue[9]);
-						break;
-					default:
-						Serial.print("Strange Sysex: ");
-						Serial.println(command, DEC);
-						break;
-					}
-				}
-			}
- 	   }
-    }
-};
-
-
-void print_settings() {
-		Serial.println("======================================");
-		Serial.println("CHANGLIER by Steve Octane Trio");
-		Serial.println("======================================");
-		Serial.print("Device Name: ");
-		Serial.println(hostname);
-		Serial.print("DMX Address: ");
-		Serial.println(dmx_address);
-		Serial.println("--------------");
-		Serial.println("Settings");
-		
-	for (int i = 0; i < NUM_SERVOS; i++) {
-		Serial.print("Servo ");
-		Serial.print(i + 1);
-		Serial.print(" MIN ");
-		Serial.print(servo_minimum[i]);
-		Serial.print(" MAX ");
-		Serial.print(servo_maximum[i]);
-		Serial.print(" Detach ");
-		Serial.print(servo_detach_minimum[i]);
-		Serial.print(" - ");
-		Serial.print(servo_detach_maximum[i]);
-		Serial.print(" INIT ");
-		Serial.print(servo_startup[i]);
-		Serial.print(" smooth ");
-		Serial.print(servo_ease[i]);
-		Serial.println();
-	}
-		Serial.println("--------------");
-}
-//----------------------------------------------------------------------------------------
-//																				Preferences
-
-void generate_default_values() {
-	Serial.println(F("Generating default servo settings"));
-    	for (int i = 0; i < NUM_SERVOS; i++) {
-    		servo_minimum[i] = DEFAULT_MINIMUM;
-    		servo_maximum[i] = DEFAULT_MAXIMUM;
-   			servo_detach_minimum[i] = DEFAULT_MINIMUM_DETACH;
-    		servo_detach_maximum[i] = DEFAULT_MINIMUM_DETACH;
-    		servo_startup[i] = DEFAULT_INIT;
-    		servo_ease[i] = DEFAULT_EASE;
-    		servo_speed[i] = DEFAULT_SPEED;
-    		servo_ease_distance[i] = DEFAULT_EASE_DISTANCE;
-			servo_channel[i] = i;
-    	}
-    write_settings();
-}  	
-    	
-    	
-void read_preferences() {
-    preferences.begin("changlier", false);
-	
-    hostname = preferences.getString("hostname");
-    if (hostname == String()) { hostname = "Bebe Changlier"; }
-
-	dmx_address = preferences.getInt("dmx_address",1);
-	wifi_enabled = preferences.getInt("wifi",1);
-	
-	preferences.putString("ssid","Anymair");
-	preferences.putString("password","Mot de passe pas complique");
-    ssid = preferences.getString("ssid");
-    password = preferences.getString("password");
-    
-    
-     
-	debounce_time = preferences.getInt("debounce_time",50);
-
-	hardware_version = HARDWARE_VERSION_20200303_VD;
-
-	battery_max_ad = preferences.getInt("battery_max_ad",2048);
-	battery_min_ad = preferences.getInt("battery_min_ad",1024);
-	battery_low_ad = preferences.getInt("battery_low_ad",1600);
-	battery_monitor_interval  = preferences.getInt("battery_monitor_interval",200);
-
-   if(preferences.getBytesLength("minima") != NUM_SERVOS) {
-    	for (int i = 0; i < NUM_SERVOS; i++) {
-    		servo_minimum[i] = DEFAULT_MINIMUM;
-        	}
-    	settings_changed = true;
-    } else {
-      	preferences.getBytes("minima",servo_minimum,NUM_SERVOS);
-    }
-
-   if(preferences.getBytesLength("maxima") != NUM_SERVOS) {
-    	for (int i = 0; i < NUM_SERVOS; i++) {
-    		servo_maximum[i] = DEFAULT_MAXIMUM;
-    	}
-    	settings_changed = true;
-    } else {
-    	preferences.getBytes("maxima",servo_maximum,NUM_SERVOS);
-    }
-    
-   if(preferences.getBytesLength("detach_minima") != NUM_SERVOS) {
-    	for (int i = 0; i < NUM_SERVOS; i++) {
-     		servo_detach_minimum[i] = DEFAULT_MINIMUM_DETACH;
-    	}
-    	settings_changed = true;
-    } else {
-        preferences.getBytes("detach_minima",servo_detach_minimum,NUM_SERVOS);
-    }
-
-   if(preferences.getBytesLength("detach_maxima") != NUM_SERVOS) {
-    	for (int i = 0; i < NUM_SERVOS; i++) {
-     		servo_detach_maximum[i] = DEFAULT_MINIMUM_DETACH;
-    	}
-    	settings_changed = true;
-    } else {
-    	preferences.getBytes("detach_maxima",servo_detach_maximum,NUM_SERVOS);
-    }
-
-   if(preferences.getBytesLength("startup") != NUM_SERVOS) {
-    	for (int i = 0; i < NUM_SERVOS; i++) {
-    		servo_startup[i] = DEFAULT_INIT;
-    	}
-    	settings_changed = true;
-    } else {
-    	preferences.getBytes("startup",servo_startup,NUM_SERVOS);
-    }
-
-   if(preferences.getBytesLength("smooth") != NUM_SERVOS) {
-    	for (int i = 0; i < NUM_SERVOS; i++) {
-    		servo_ease[i] = DEFAULT_EASE;
-    	}
-    	settings_changed = true;
-    } else {
-    	preferences.getBytes("smooth",servo_ease,NUM_SERVOS);
-    }
-
-   if(preferences.getBytesLength("speed") != NUM_SERVOS) {
-    	for (int i = 0; i < NUM_SERVOS; i++) {
-     		servo_speed[i] = DEFAULT_SPEED;
-    	}
-    	settings_changed = true;
-    } else {
-    	preferences.getBytes("speed",servo_speed,NUM_SERVOS);
-    }
- 
-   if(preferences.getBytesLength("ease_distance") != NUM_SERVOS) {
-    	for (int i = 0; i < NUM_SERVOS; i++) {
-    		servo_ease_distance[i] = DEFAULT_EASE_DISTANCE;
-    	}
-    	settings_changed = true;
-    } else {
-    	preferences.getBytes("ease_distance",servo_ease_distance,NUM_SERVOS);
-    }
-   if(preferences.getBytesLength("channel") != NUM_SERVOS) {
-    	for (int i = 0; i < NUM_SERVOS; i++) {
-			servo_channel[i] = i;
-    	}
-    	settings_changed = true;
-    } else {
-    	preferences.getBytes("channel",servo_channel,NUM_SERVOS);
-    }
-
-	servo_channels_messed_up = false;
-	for (int i = 0; i < NUM_SERVOS; i++) {
-		if (servo_channel[i] != i ) servo_channels_messed_up = true;
-	}
-	if (servo_channels_messed_up) Serial.println("Messed up Servos");
-
-	preferences.end();
-	
-	print_settings();
-}
-
-void write_settings() {
-	preferences.begin("changlier", false);
-    	preferences.putBytes("minima",servo_minimum,NUM_SERVOS);
-    	preferences.putBytes("maxima",servo_maximum,NUM_SERVOS);
-	   	preferences.putBytes("detach_minima",servo_detach_minimum,NUM_SERVOS);
-    	preferences.putBytes("detach_maxima",servo_detach_maximum,NUM_SERVOS);
-    	preferences.putBytes("startup",servo_startup,NUM_SERVOS);
-    	preferences.putBytes("smooth",servo_ease,NUM_SERVOS);
-    	preferences.putBytes("speed",servo_speed,NUM_SERVOS);
-    	preferences.putBytes("ease_distance",servo_ease_distance,NUM_SERVOS);
-    	preferences.putBytes("channel",servo_channel,NUM_SERVOS);
-    	
-		preferences.putInt("battery_max_ad",battery_max_ad);
-		preferences.putInt("battery_min_ad",battery_min_ad);
-		preferences.putInt("battery_low_ad",battery_low_ad);
-		preferences.putInt("battery_monitor_interval",battery_monitor_interval);
-
-	preferences.end();
-	Serial.println("Settings written");
-}
 //----------------------------------------------------------------------------------------
 //																				NOTES
 
@@ -1053,38 +393,8 @@ void setup(){
 		myservo[i].write(servo_startup[i]);
 		set_easing(i, servo_ease[i]);
 	}
-
-
-	BLEDevice::init(hostname.c_str());
-    
-	// Create the BLE Server
-	BLEServer *pServer = BLEDevice::createServer();
-	pServer->setCallbacks(new MyServerCallbacks());
-
-	// Create the BLE Service
-	BLEService *pService = pServer->createService(BLEUUID(SERVICE_UUID));
-
-	// Create a BLE Characteristic
-	pCharacteristic = pService->createCharacteristic(
-		BLEUUID(CHARACTERISTIC_UUID),
-		BLECharacteristic::PROPERTY_READ   |
-		BLECharacteristic::PROPERTY_WRITE  |
-		BLECharacteristic::PROPERTY_NOTIFY |
-		BLECharacteristic::PROPERTY_WRITE_NR
-	);
-
-	// https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
-	// Create a BLE Descriptor
-	pCharacteristic->addDescriptor(new BLE2902());
-	pCharacteristic->setCallbacks(new MyCallbacks());
 	
-	// Start the service
-	pService->start();
-
-	// Start advertising
-	BLEAdvertising *pAdvertising = pServer->getAdvertising();
-	pAdvertising->addServiceUUID(pService->getUUID());
-	pAdvertising->start();
+	bluetooth_init() ;
 
 	FastLED.addLeds<SK6812, PIN_PIXELS, RGB>(pixels, NUM_PIXELS);
 //	FastLED.addLeds<SK6812, PIN_STATUS_PIX, RGB>(statusled, 1);
