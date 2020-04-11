@@ -14,143 +14,8 @@ const char * version = "2020-04-11.1";
 //
 //----------------------------------------------------------------------------------------
 
-#include <esp32-dmx-rx.h>
-
-#include <Preferences.h>
-#include "ServoEasing.h"
-#include <BLEDevice.h>
-#include <BLEUtils.h>
-#include <BLEServer.h>
-#include <BLE2902.h>
-#include <Timer.h>
-#include <FastLED.h>
-
-#include <WiFi.h>
-#include <WiFiClient.h>
-#include <WebServer.h>
-#include <ESPmDNS.h>
-#include <Update.h>
-//========================================================================================
-//----------------------------------------------------------------------------------------
-//																				DEFINES
-
-#define	DMX_DETACH_TIME			10
-#define	DMX_CHANNELS			20
-
-#define SYSEX_NOP				0
-
-#define SYSEX_GET_VERSION		10
-#define SYSEX_GET_DMX_ADDRESS	11
-#define SYSEX_GET_DEBOUNCE		12
-
-#define SYSEX_NAMECHANGE		22
-#define SYSEX_SET_DMX_ADDRESS	23
-#define SYSEX_SET_SERVOSETTINGS	24
-#define SYSEX_SET_MINIMUM_HERE		25
-#define SYSEX_SET_MAXIMUM_HERE		26
-#define SYSEX_CLEAR_MIN_MAX		28
-#define SYSEX_INVERT_MIN_MAX	29
-
-#define SYSEX_SEND_SERVODATA		30
-#define SYSEX_SEND_SERVOSETTINGS	31
-
-#define SYSEX_SET_MINIMUM		40
-#define SYSEX_SET_MAXIMUM		41
-
-#define SYSEX_SERVODATA			50
-#define SYSEX_VERSION_DATA		51
-#define SYSEX_SERVOSETTINGS		52
-#define SYSEX_DMX_ADDRESS		53
-#define SYSEX_DEBOUNCE			54
-#define SYSEX_SET_DEBOUNCE			55
-
-#define SYSEX_SET_SSID		80
-#define SYSEX_SET_PASSWORD		81
-
-#define SYSEX_GET_PARAM		90
-#define SYSEX_PARAM_DATA	91
-#define SYSEX_SET_PARAM		92
-
-#define SYSEX_START_WIFI	100
-
-const int PARAM_min = 2;
-const int PARAM_max = 3;
-const int PARAM_init = 4;
-const int PARAM_detach_lo = 5;
-const int PARAM_detach_hi = 6;
-const int PARAM_ease_func = 7;
-const int PARAM_speed = 8;
-const int PARAM_ease_distance = 9;
-const int PARAM_channel = 10;
-const int PARAM_reset_all = 11;
-const int PARAM_battery = 12;
-
-
-#define DEFAULT_MINIMUM		0
-#define DEFAULT_MAXIMUM		180
-#define DEFAULT_MINIMUM_DETACH 63
-#define DEFAULT_MINIMUM_DETACH 63
-#define DEFAULT_INIT	90
-#define DEFAULT_EASE	0
-#define DEFAULT_SPEED	120
-#define DEFAULT_EASE_DISTANCE 36
-
-#define PARKING_MODE_NONE	0
-#define PARKING_MODE_PARK	1
-#define PARKING_MODE_DODO	2
-
-#define	HARDWARE_VERSION_UNKNOWN		 0
-#define	HARDWARE_VERSION_2				 2			// june 2019 with display
-#define	HARDWARE_VERSION_20200303		 3			// eurocircuits, matte finish, vanilla
-#define	HARDWARE_VERSION_20200303_V		 4			// eurocircuits, matte finish, with voltage sensor mod
-#define	HARDWARE_VERSION_20200303_VD	 5			// eurocircuits, matte finish, with voltage sensor mod + detach on 74HC244
-
-
-#define SERVICE_UUID        "03b80e5a-ede8-4b33-a751-6ce34ec4c700"
-#define CHARACTERISTIC_UUID "7772e5db-3868-4112-a1a9-f2669d106bf3"
-
-#define WIFI_TIMEOUT		4000
-
-/*
- * Server Index Page
- */
- 
-const char* serverIndex = 
-"<script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>"
-"<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>"
-   "<input type='file' name='update'>"
-        "<input type='submit' value='Update'>"
-    "</form>"
- "<div id='prg'>progress: 0%</div>"
- "<script>"
-  "$('form').submit(function(e){"
-  "e.preventDefault();"
-  "var form = $('#upload_form')[0];"
-  "var data = new FormData(form);"
-  " $.ajax({"
-  "url: '/update',"
-  "type: 'POST',"
-  "data: data,"
-  "contentType: false,"
-  "processData:false,"
-  "xhr: function() {"
-  "var xhr = new window.XMLHttpRequest();"
-  "xhr.upload.addEventListener('progress', function(evt) {"
-  "if (evt.lengthComputable) {"
-  "var per = evt.loaded / evt.total;"
-  "$('#prg').html('progress: ' + Math.round(per*100) + '%');"
-  "}"
-  "}, false);"
-  "return xhr;"
-  "},"
-  "success:function(d, s) {"
-  "console.log('success!')" 
- "},"
- "error: function (a, b, c) {"
- "}"
- "});"
- "});"
- "</script>";
+#include "Changlier.h"
+#include "ChanglierOTA.h"
 
 // .............................................................................Pins 
 
@@ -171,13 +36,8 @@ const char 	PIN_V_SENS				= 35;
 Preferences                             preferences;
 ServoEasing 							myservo[NUM_SERVOS];
 Timer									t;
-WebServer server(80);
 
 int	hardware_version;
-
-String ssid;
-String password;
-
 
 CRGB									statusled[1];
 CRGB                                    pixels[NUM_PIXELS];
@@ -186,7 +46,6 @@ CHSV									colors[NUM_PIXELS];
 String 									hostname;
 
 int										dmx_address;
-boolean wifi_enabled;
 
 float	servo_position[NUM_SERVOS];
 
@@ -1166,83 +1025,6 @@ void check_battery(void) {
 //																				Enable Wifi for OTA updates
 
 
-void enable_wifi() {
-	Serial.println("Enabling Wifi");
-	Serial.println(ssid);
-	Serial.println(password);
-
-	WiFi.mode(WIFI_STA);
-	WiFi.begin(ssid.c_str(), password.c_str());
-	long start_time = millis();
-	 while (WiFi.status() != WL_CONNECTED) { 
-		delay(500); 
-		if ((millis()-start_time) > WIFI_TIMEOUT) break;
-	}
-
-	if (WiFi.status() == WL_CONNECTED) {
-		
-			String host = hostname;
-			host.toLowerCase();
-			host.replace(" ", "_");
-		 if (!MDNS.begin(host.c_str())) { 
-			Serial.println("Error setting up MDNS responder!");
-			while (1) {
-			  delay(1000);
-			}
-		  }
-		Serial.println("Wifi OK");
-
-		wifi_enabled = true;
-		btStop();
-		fill_solid(pixels, NUM_PIXELS, CRGB::Blue);
-		FastLED.show();
-
-		  server.on("/restart", HTTP_GET, []() {
-			server.sendHeader("Connection", "close");
-			server.send(200, "text/plain", "Rebooting");
-			Serial.println("Wifi OK");
-			ESP.restart();
-		  });
-		
-		  server.on("/", HTTP_GET, []() {
-			server.sendHeader("Connection", "close");
-			server.send(200, "text/html", serverIndex);
-		  });
-		  server.on("/serverIndex", HTTP_GET, []() {
-			server.sendHeader("Connection", "close");
-			server.send(200, "text/html", serverIndex);
-		  });
-		  /*handling uploading firmware file */
-		  server.on("/update", HTTP_POST, []() {
-			server.sendHeader("Connection", "close");
-			server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
-			ESP.restart();
-		  }, []() {
-			HTTPUpload& upload = server.upload();
-			if (upload.status == UPLOAD_FILE_START) {
-			  Serial.printf("Update: %s\n", upload.filename.c_str());
-			  if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { //start with max available size
-				Update.printError(Serial);
-			  }
-			} else if (upload.status == UPLOAD_FILE_WRITE) {
-			  /* flashing firmware to ESP*/
-			  if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-				Update.printError(Serial);
-			  }
-			} else if (upload.status == UPLOAD_FILE_END) {
-			  if (Update.end(true)) { //true to set the size to the current progress
-				Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
-			  } else {
-				Update.printError(Serial);
-			  }
-			}
-		  });
-		  server.begin();
-  
-	} else {
-			Serial.println("Error enabling Wifi");
-	}
-}
 
 
 //========================================================================================
