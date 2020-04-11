@@ -60,7 +60,7 @@
 					"numoutlets" : 0,
 					"patching_rect" : [ 345.0, 224.0, 150.0, 20.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 11.0, 9.0, 125.0, 20.0 ],
+					"presentation_rect" : [ 11.0, 2.0, 125.0, 20.0 ],
 					"style" : "",
 					"textcolor" : [ 0.0, 0.0, 0.0, 0.0 ]
 				}
@@ -75,7 +75,7 @@
 					"numoutlets" : 0,
 					"patching_rect" : [ 212.0, 612.0, 31.0, 20.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 633.0, 9.0, 31.0, 20.0 ],
+					"presentation_rect" : [ 633.0, 2.0, 31.0, 20.0 ],
 					"style" : "",
 					"text" : "V",
 					"textcolor" : [ 0.0, 0.0, 0.0, 0.0 ]
@@ -153,9 +153,9 @@
 					"numinlets" : 0,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 947.0, 90.0, 121.0, 22.0 ],
+					"patching_rect" : [ 947.0, 90.0, 109.0, 22.0 ],
 					"style" : "",
-					"text" : "r clear_changlier_list"
+					"text" : "r clear_battery_list"
 				}
 
 			}
@@ -329,7 +329,7 @@
 					"parameter_enable" : 0,
 					"patching_rect" : [ 175.0, 612.0, 40.0, 22.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 596.0, 9.0, 40.0, 22.0 ],
+					"presentation_rect" : [ 596.0, 2.0, 40.0, 22.0 ],
 					"style" : "",
 					"textcolor" : [ 0.0, 0.0, 0.0, 0.0 ],
 					"triangle" : 0
@@ -354,7 +354,7 @@
 					"bgcolor" : [ 0.0, 0.0, 0.0, 0.0 ],
 					"elementcolor" : [ 0.0, 0.0, 0.0, 0.0 ],
 					"id" : "obj-9",
-					"knobcolor" : [ 0.0, 0.0, 0.0, 0.0 ],
+					"knobcolor" : [ -0.049107, 1.065476, 0.0, 1.0 ],
 					"maxclass" : "slider",
 					"numinlets" : 1,
 					"numoutlets" : 1,
@@ -362,7 +362,7 @@
 					"parameter_enable" : 0,
 					"patching_rect" : [ 106.0, 461.0, 43.0, 134.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 138.0, 9.0, 449.0, 19.0 ],
+					"presentation_rect" : [ 138.0, 2.0, 449.0, 19.0 ],
 					"style" : ""
 				}
 

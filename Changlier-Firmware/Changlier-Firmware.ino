@@ -1,4 +1,4 @@
-const char * version = "2020-04-07.0";
+const char * version = "2020-04-11.1";
 
 //----------------------------------------------------------------------------------------
 //
@@ -17,7 +17,6 @@ const char * version = "2020-04-07.0";
 #include <esp32-dmx-rx.h>
 
 #include <Preferences.h>
-//#include <ESP32Servo.h>		//version 0.6.3
 #include "ServoEasing.h"
 #include <BLEDevice.h>
 #include <BLEUtils.h>
@@ -26,6 +25,11 @@ const char * version = "2020-04-07.0";
 #include <Timer.h>
 #include <FastLED.h>
 
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <WebServer.h>
+#include <ESPmDNS.h>
+#include <Update.h>
 //========================================================================================
 //----------------------------------------------------------------------------------------
 //																				DEFINES
@@ -60,9 +64,14 @@ const char * version = "2020-04-07.0";
 #define SYSEX_DEBOUNCE			54
 #define SYSEX_SET_DEBOUNCE			55
 
+#define SYSEX_SET_SSID		80
+#define SYSEX_SET_PASSWORD		81
+
 #define SYSEX_GET_PARAM		90
 #define SYSEX_PARAM_DATA	91
 #define SYSEX_SET_PARAM		92
+
+#define SYSEX_START_WIFI	100
 
 const int PARAM_min = 2;
 const int PARAM_max = 3;
@@ -90,14 +99,66 @@ const int PARAM_battery = 12;
 #define PARKING_MODE_PARK	1
 #define PARKING_MODE_DODO	2
 
+#define	HARDWARE_VERSION_UNKNOWN		 0
+#define	HARDWARE_VERSION_2				 2			// june 2019 with display
+#define	HARDWARE_VERSION_20200303		 3			// eurocircuits, matte finish, vanilla
+#define	HARDWARE_VERSION_20200303_V		 4			// eurocircuits, matte finish, with voltage sensor mod
+#define	HARDWARE_VERSION_20200303_VD	 5			// eurocircuits, matte finish, with voltage sensor mod + detach on 74HC244
+
+
 #define SERVICE_UUID        "03b80e5a-ede8-4b33-a751-6ce34ec4c700"
 #define CHARACTERISTIC_UUID "7772e5db-3868-4112-a1a9-f2669d106bf3"
+
+#define WIFI_TIMEOUT		4000
+
+/*
+ * Server Index Page
+ */
+ 
+const char* serverIndex = 
+"<script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>"
+"<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>"
+   "<input type='file' name='update'>"
+        "<input type='submit' value='Update'>"
+    "</form>"
+ "<div id='prg'>progress: 0%</div>"
+ "<script>"
+  "$('form').submit(function(e){"
+  "e.preventDefault();"
+  "var form = $('#upload_form')[0];"
+  "var data = new FormData(form);"
+  " $.ajax({"
+  "url: '/update',"
+  "type: 'POST',"
+  "data: data,"
+  "contentType: false,"
+  "processData:false,"
+  "xhr: function() {"
+  "var xhr = new window.XMLHttpRequest();"
+  "xhr.upload.addEventListener('progress', function(evt) {"
+  "if (evt.lengthComputable) {"
+  "var per = evt.loaded / evt.total;"
+  "$('#prg').html('progress: ' + Math.round(per*100) + '%');"
+  "}"
+  "}, false);"
+  "return xhr;"
+  "},"
+  "success:function(d, s) {"
+  "console.log('success!')" 
+ "},"
+ "error: function (a, b, c) {"
+ "}"
+ "});"
+ "});"
+ "</script>";
+
 // .............................................................................Pins 
 
 
 const char 	servo_pin[] 			= {32,33,25,26,27,14};
 const char  note_pin[]				= {22,21,23,19};
 const char	PIN_PIXELS				= 13;
+const char	PIN_ENABLE_SERVOS1_4	= 15;
 const char 	NUM_SERVOS				= 6;
 const char	NUM_NOTES				= 4;
 const char	NUM_PIXELS				= 6;
@@ -110,6 +171,13 @@ const char 	PIN_V_SENS				= 35;
 Preferences                             preferences;
 ServoEasing 							myservo[NUM_SERVOS];
 Timer									t;
+WebServer server(80);
+
+int	hardware_version;
+
+String ssid;
+String password;
+
 
 CRGB									statusled[1];
 CRGB                                    pixels[NUM_PIXELS];
@@ -118,10 +186,10 @@ CHSV									colors[NUM_PIXELS];
 String 									hostname;
 
 int										dmx_address;
+boolean wifi_enabled;
 
 float	servo_position[NUM_SERVOS];
 
-unsigned char servo_detach;
 unsigned  parking_mode;
 
 unsigned int dmx_detach[DMX_CHANNELS];
@@ -571,8 +639,13 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 					//servo_val_raw[idx] = val;
 					servo_control(idx,val);
 				} else if (idx == 6) { 
-					servo_detach = val;					// channel 7: 			global servo detach 
-					if (val > 64) servo_detach = 0xFF;
+					if (hardware_version >= HARDWARE_VERSION_20200303_VD) {
+						if (val > 64) {
+							digitalWrite(PIN_ENABLE_SERVOS1_4,HIGH);
+						} else {
+							digitalWrite(PIN_ENABLE_SERVOS1_4,LOW);
+						}	
+					}				
 				} else {
 					led_control(idx,val);
 				}
@@ -635,9 +708,52 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 							preferences.begin("changlier", false);
 							preferences.putString("hostname",new_name);
 							preferences.end();
-							
 						}
 						break;
+					case SYSEX_SET_SSID:
+						if (len > rxValue.length() - 8) {
+							Serial.println("PARSE ERROR: Incorrect length");
+							Serial.print(len,DEC);
+							Serial.print(" ");
+							Serial.print(rxValue.length(),DEC);
+
+						} else {
+							for (int i = 0; i < len; i++) {
+								char in = rxValue[i + 6];
+								if ((in > 31) && (in < 123)) {
+									new_name += in;
+								} else {
+									Serial.println("PARSE ERROR: Forbidden char");
+								}
+							}
+							preferences.begin("changlier", false);
+							preferences.putString("ssid",new_name);
+							preferences.end();
+						}
+						break;
+					case SYSEX_SET_PASSWORD:
+						if (len > rxValue.length() - 8) {
+							Serial.println("PARSE ERROR: Incorrect length");
+							Serial.print(len,DEC);
+							Serial.print(" ");
+							Serial.print(rxValue.length(),DEC);
+
+						} else {
+							for (int i = 0; i < len; i++) {
+								char in = rxValue[i + 6];
+								if ((in > 31) && (in < 123)) {
+									new_name += in;
+								} else {
+									Serial.println("PARSE ERROR: Forbidden char");
+								}
+							}
+							preferences.begin("changlier", false);
+							preferences.putString("password",new_name);
+							preferences.end();
+						}
+						break;
+					case SYSEX_START_WIFI:
+						enable_wifi();
 					case SYSEX_CLEAR_MIN_MAX:
 						if (channel < NUM_SERVOS) {
 								servo_minimum[channel] = 0;
@@ -713,7 +829,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 						break;
 					default:
 						Serial.print("Strange Sysex: ");
-						Serial.println(command);
+						Serial.println(command, DEC);
 						break;
 					}
 				}
@@ -780,7 +896,18 @@ void read_preferences() {
     if (hostname == String()) { hostname = "Bebe Changlier"; }
 
 	dmx_address = preferences.getInt("dmx_address",1);
+	wifi_enabled = preferences.getInt("wifi",1);
+	
+	preferences.putString("ssid","Anymair");
+	preferences.putString("password","Mot de passe pas complique");
+    ssid = preferences.getString("ssid");
+    password = preferences.getString("password");
+    
+    
+     
 	debounce_time = preferences.getInt("debounce_time",50);
+
+	hardware_version = HARDWARE_VERSION_20200303_VD;
 
 	battery_max_ad = preferences.getInt("battery_max_ad",2048);
 	battery_min_ad = preferences.getInt("battery_min_ad",1024);
@@ -991,10 +1118,7 @@ void check_dmx() {
 				if (val < 129 && val > 0) servo_control(i ,val - 1);
 			}
 		}
-/*		val = DMX::Read(6 + dmx_address);
-		if (val > 127) val = 127;
-		servo_detach = val;
-*/		
+		
 		for (int i = 7; i < 16; i++) {
 			if (!dmx_detach[i]) {
 				val = DMX::Read(i + dmx_address);
@@ -1038,6 +1162,89 @@ void check_battery(void) {
 	battery_last_check = millis();
 }
 
+//----------------------------------------------------------------------------------------
+//																				Enable Wifi for OTA updates
+
+
+void enable_wifi() {
+	Serial.println("Enabling Wifi");
+	Serial.println(ssid);
+	Serial.println(password);
+
+	WiFi.mode(WIFI_STA);
+	WiFi.begin(ssid.c_str(), password.c_str());
+	long start_time = millis();
+	 while (WiFi.status() != WL_CONNECTED) { 
+		delay(500); 
+		if ((millis()-start_time) > WIFI_TIMEOUT) break;
+	}
+
+	if (WiFi.status() == WL_CONNECTED) {
+		
+			String host = hostname;
+			host.toLowerCase();
+			host.replace(" ", "_");
+		 if (!MDNS.begin(host.c_str())) { 
+			Serial.println("Error setting up MDNS responder!");
+			while (1) {
+			  delay(1000);
+			}
+		  }
+		Serial.println("Wifi OK");
+
+		wifi_enabled = true;
+		btStop();
+		fill_solid(pixels, NUM_PIXELS, CRGB::Blue);
+		FastLED.show();
+
+		  server.on("/restart", HTTP_GET, []() {
+			server.sendHeader("Connection", "close");
+			server.send(200, "text/plain", "Rebooting");
+			Serial.println("Wifi OK");
+			ESP.restart();
+		  });
+		
+		  server.on("/", HTTP_GET, []() {
+			server.sendHeader("Connection", "close");
+			server.send(200, "text/html", serverIndex);
+		  });
+		  server.on("/serverIndex", HTTP_GET, []() {
+			server.sendHeader("Connection", "close");
+			server.send(200, "text/html", serverIndex);
+		  });
+		  /*handling uploading firmware file */
+		  server.on("/update", HTTP_POST, []() {
+			server.sendHeader("Connection", "close");
+			server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+			ESP.restart();
+		  }, []() {
+			HTTPUpload& upload = server.upload();
+			if (upload.status == UPLOAD_FILE_START) {
+			  Serial.printf("Update: %s\n", upload.filename.c_str());
+			  if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { //start with max available size
+				Update.printError(Serial);
+			  }
+			} else if (upload.status == UPLOAD_FILE_WRITE) {
+			  /* flashing firmware to ESP*/
+			  if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+				Update.printError(Serial);
+			  }
+			} else if (upload.status == UPLOAD_FILE_END) {
+			  if (Update.end(true)) { //true to set the size to the current progress
+				Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+			  } else {
+				Update.printError(Serial);
+			  }
+			}
+		  });
+		  server.begin();
+  
+	} else {
+			Serial.println("Error enabling Wifi");
+	}
+}
+
+
 //========================================================================================
 //----------------------------------------------------------------------------------------
 //																				SETUP
@@ -1048,33 +1255,16 @@ void setup(){
     pinMode(LED_BUILTIN,OUTPUT);
     digitalWrite(LED_BUILTIN,HIGH);
 	
-	
 	DMX::Initialize();
 
 	Serial.println("Startup");
-	FastLED.addLeds<SK6812, PIN_PIXELS, RGB>(pixels, NUM_PIXELS);
-//	FastLED.addLeds<SK6812, PIN_STATUS_PIX, RGB>(statusled, 1);
-
-	for (int hue = 0; hue < 360; hue++) {
-    	fill_rainbow( pixels, NUM_PIXELS, hue, 7);
-	//	statusled[0].setHSV(hue,127,127);
-	    delay(3);
-    	FastLED.show(); 
-  	}
-  
-	for (int i = 0; i< NUM_PIXELS; i++) {
-		colors[i].hue = 42; // yellow
-		colors[i].saturation = 160;
-		colors[i].value = 0;
-	}
-	leds_changed = true;
-
-
-	for (int i = 0; i< NUM_NOTES; i++) {
-		pinMode(note_pin[i], INPUT_PULLUP);
-	}
 
 	read_preferences();
+	
+	if (hardware_version >= HARDWARE_VERSION_20200303_VD) {
+		pinMode(PIN_ENABLE_SERVOS1_4, OUTPUT);
+		digitalWrite(PIN_ENABLE_SERVOS1_4,LOW);
+	}
 	
 	for (int i = 0; i< NUM_SERVOS; i++) {
 		myservo[i].attach(servo_pin[i]);
@@ -1082,7 +1272,7 @@ void setup(){
 		set_easing(i, servo_ease[i]);
 	}
 
- 
+
 	BLEDevice::init(hostname.c_str());
     
 	// Create the BLE Server
@@ -1105,7 +1295,7 @@ void setup(){
 	// Create a BLE Descriptor
 	pCharacteristic->addDescriptor(new BLE2902());
 	pCharacteristic->setCallbacks(new MyCallbacks());
-
+	
 	// Start the service
 	pService->start();
 
@@ -1114,12 +1304,34 @@ void setup(){
 	pAdvertising->addServiceUUID(pService->getUUID());
 	pAdvertising->start();
 
-  // Wait for servo to reach start position.
-    delay(500);
+	FastLED.addLeds<SK6812, PIN_PIXELS, RGB>(pixels, NUM_PIXELS);
+//	FastLED.addLeds<SK6812, PIN_STATUS_PIX, RGB>(statusled, 1);
+
+	for (int hue = 0; hue < 360; hue++) {
+    	fill_rainbow( pixels, NUM_PIXELS, hue, 7);
+	//	statusled[0].setHSV(hue,127,127);
+	    delay(3);
+    	FastLED.show(); 
+  	}
+  
+	for (int i = 0; i< NUM_PIXELS; i++) {
+		colors[i].hue = 42; // yellow
+		colors[i].saturation = 160;
+		colors[i].value = 0;
+	}
+	leds_changed = true;
+	wifi_enabled = false;
+
+	for (int i = 0; i< NUM_NOTES; i++) {
+		pinMode(note_pin[i], INPUT_PULLUP);
+	}
+		
+	// Wait for servo to reach start position.
+    delay(1000);
 
 	t.every(10,service_servos);
 	t.every(10,check_dmx);
-	t.every(1,check_buttons);
+	t.every(1,check_buttons);	
 	t.every(20,update_leds);
 	t.every(1000,check_dmx_detach);
 	t.every(30000,check_settings_changed);
@@ -1134,13 +1346,17 @@ void setup(){
 //																				loop
  
 void loop(){
-	t.update();
-	
-    if ((millis() - last_packet) > 200) {digitalWrite(LED_BUILTIN,LOW);}
-    else {digitalWrite(LED_BUILTIN,HIGH); }
+	if (wifi_enabled)  {server.handleClient(); delay(1); }
+	else {
+		 t.update();
+		 		
+		if ((millis() - last_packet) > 200) {digitalWrite(LED_BUILTIN,LOW);}
+		else {digitalWrite(LED_BUILTIN,HIGH); }
 
-	if (battery_monitor_interval) {
-	    if ((millis() - battery_last_check) > battery_monitor_interval) { check_battery(); }
+		if (hardware_version >=  HARDWARE_VERSION_20200303_V) {
+			if (battery_monitor_interval) {
+				if ((millis() - battery_last_check) > battery_monitor_interval) { check_battery(); }
+			}
+		}
 	}
-
 }

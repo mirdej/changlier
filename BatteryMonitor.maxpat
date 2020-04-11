@@ -5,15 +5,15 @@
 			"major" : 7,
 			"minor" : 3,
 			"revision" : 5,
-			"architecture" : "x86",
+			"architecture" : "x64",
 			"modernui" : 1
 		}
 ,
-		"rect" : [ 113.0, 154.0, 956.0, 833.0 ],
+		"rect" : [ 57.0, 857.0, 1212.0, 433.0 ],
 		"bgcolor" : [ 0.239216, 0.254902, 0.278431, 1.0 ],
 		"editing_bgcolor" : [ 0.239216, 0.254902, 0.278431, 1.0 ],
 		"bglocked" : 0,
-		"openinpresentation" : 0,
+		"openinpresentation" : 1,
 		"default_fontsize" : 12.0,
 		"default_fontface" : 0,
 		"default_fontname" : "Arial",
@@ -54,7 +54,7 @@
 					"offset" : [ 0.0, 0.0 ],
 					"patching_rect" : [ 643.0, 764.0, 678.0, 38.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 23.0, 387.0, 678.0, 38.0 ],
+					"presentation_rect" : [ 23.0, 314.0, 678.0, 38.0 ],
 					"viewvisibility" : 1
 				}
 
@@ -75,7 +75,7 @@
 					"offset" : [ 0.0, 0.0 ],
 					"patching_rect" : [ 616.0, 706.0, 678.0, 38.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 23.0, 339.875, 678.0, 38.0 ],
+					"presentation_rect" : [ 23.0, 276.0, 678.0, 38.0 ],
 					"viewvisibility" : 1
 				}
 
@@ -96,7 +96,7 @@
 					"offset" : [ 0.0, 0.0 ],
 					"patching_rect" : [ 589.0, 648.0, 678.0, 38.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 23.0, 292.75, 678.0, 38.0 ],
+					"presentation_rect" : [ 23.0, 238.0, 678.0, 38.0 ],
 					"viewvisibility" : 1
 				}
 
@@ -117,7 +117,7 @@
 					"offset" : [ 0.0, 0.0 ],
 					"patching_rect" : [ 577.0, 593.0, 678.0, 38.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 23.0, 245.625, 678.0, 38.0 ],
+					"presentation_rect" : [ 23.0, 200.0, 678.0, 38.0 ],
 					"viewvisibility" : 1
 				}
 
@@ -138,7 +138,7 @@
 					"offset" : [ 0.0, 0.0 ],
 					"patching_rect" : [ 565.0, 538.0, 678.0, 38.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 23.0, 198.5, 678.0, 38.0 ],
+					"presentation_rect" : [ 23.0, 162.0, 678.0, 38.0 ],
 					"viewvisibility" : 1
 				}
 
@@ -159,7 +159,7 @@
 					"offset" : [ 0.0, 0.0 ],
 					"patching_rect" : [ 553.0, 483.0, 678.0, 38.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 23.0, 151.375, 678.0, 38.0 ],
+					"presentation_rect" : [ 23.0, 124.0, 678.0, 38.0 ],
 					"viewvisibility" : 1
 				}
 
@@ -180,7 +180,7 @@
 					"offset" : [ 0.0, 0.0 ],
 					"patching_rect" : [ 541.0, 428.0, 678.0, 38.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 23.0, 104.25, 678.0, 38.0 ],
+					"presentation_rect" : [ 23.0, 86.0, 678.0, 38.0 ],
 					"viewvisibility" : 1
 				}
 
@@ -201,7 +201,7 @@
 					"offset" : [ 0.0, 0.0 ],
 					"patching_rect" : [ 529.0, 373.0, 678.0, 38.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 23.0, 57.125, 678.0, 38.0 ],
+					"presentation_rect" : [ 23.0, 48.0, 678.0, 38.0 ],
 					"viewvisibility" : 1
 				}
 
@@ -219,7 +219,7 @@
 					"name" : "BatteryMonDevice.maxpat",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"offset" : [ 0.0, 0.0 ],
+					"offset" : [ 0.0, 6.0 ],
 					"patching_rect" : [ 517.0, 318.0, 678.0, 38.0 ],
 					"presentation" : 1,
 					"presentation_rect" : [ 23.0, 10.0, 678.0, 38.0 ],
@@ -240,7 +240,7 @@
 							"major" : 7,
 							"minor" : 3,
 							"revision" : 5,
-							"architecture" : "x86",
+							"architecture" : "x64",
 							"modernui" : 1
 						}
 ,
@@ -274,6 +274,30 @@
 						"style" : "",
 						"subpatcher_template" : "standard",
 						"boxes" : [ 							{
+								"box" : 								{
+									"id" : "obj-2",
+									"maxclass" : "button",
+									"numinlets" : 1,
+									"numoutlets" : 1,
+									"outlettype" : [ "bang" ],
+									"patching_rect" : [ 494.0, 225.154663, 24.0, 24.0 ],
+									"style" : ""
+								}
+
+							}
+, 							{
+								"box" : 								{
+									"id" : "obj-11",
+									"maxclass" : "newobj",
+									"numinlets" : 1,
+									"numoutlets" : 0,
+									"patching_rect" : [ 494.0, 274.154663, 111.0, 22.0 ],
+									"style" : "",
+									"text" : "s clear_battery_list"
+								}
+
+							}
+, 							{
 								"box" : 								{
 									"id" : "obj-14",
 									"maxclass" : "number",
@@ -621,6 +645,13 @@
 							}
 , 							{
 								"patchline" : 								{
+									"destination" : [ "obj-11", 0 ],
+									"source" : [ "obj-2", 0 ]
+								}
+
+							}
+, 							{
+								"patchline" : 								{
 									"destination" : [ "obj-1", 0 ],
 									"source" : [ "obj-3", 0 ]
 								}
@@ -653,6 +684,13 @@
 								"patchline" : 								{
 									"destination" : [ "obj-1", 0 ],
 									"source" : [ "obj-48", 0 ]
+								}
+
+							}
+, 							{
+								"patchline" : 								{
+									"destination" : [ "obj-2", 0 ],
+									"source" : [ "obj-48", 2 ]
 								}
 
 							}
@@ -830,7 +868,7 @@
 							"major" : 7,
 							"minor" : 3,
 							"revision" : 5,
-							"architecture" : "x86",
+							"architecture" : "x64",
 							"modernui" : 1
 						}
 ,
@@ -864,30 +902,6 @@
 						"style" : "",
 						"subpatcher_template" : "standard",
 						"boxes" : [ 							{
-								"box" : 								{
-									"id" : "obj-4",
-									"maxclass" : "button",
-									"numinlets" : 1,
-									"numoutlets" : 1,
-									"outlettype" : [ "bang" ],
-									"patching_rect" : [ 474.0, 524.154663, 24.0, 24.0 ],
-									"style" : ""
-								}
-
-							}
-, 							{
-								"box" : 								{
-									"id" : "obj-2",
-									"maxclass" : "newobj",
-									"numinlets" : 1,
-									"numoutlets" : 0,
-									"patching_rect" : [ 474.0, 573.154663, 123.0, 22.0 ],
-									"style" : "",
-									"text" : "s clear_changlier_list"
-								}
-
-							}
-, 							{
 								"box" : 								{
 									"id" : "obj-1",
 									"maxclass" : "newobj",
@@ -1144,15 +1158,6 @@
 , 							{
 								"patchline" : 								{
 									"destination" : [ "obj-39", 0 ],
-									"order" : 1,
-									"source" : [ "obj-30", 0 ]
-								}
-
-							}
-, 							{
-								"patchline" : 								{
-									"destination" : [ "obj-4", 0 ],
-									"order" : 0,
 									"source" : [ "obj-30", 0 ]
 								}
 
@@ -1182,13 +1187,6 @@
 								"patchline" : 								{
 									"destination" : [ "obj-29", 0 ],
 									"source" : [ "obj-38", 0 ]
-								}
-
-							}
-, 							{
-								"patchline" : 								{
-									"destination" : [ "obj-2", 0 ],
-									"source" : [ "obj-4", 0 ]
 								}
 
 							}
@@ -1304,7 +1302,7 @@
  ],
 		"dependency_cache" : [ 			{
 				"name" : "BatteryMonDevice.maxpat",
-				"bootpath" : "~/Documents/projets_en_cours/SteveOctaneTrio/_Machines/Changlier",
+				"bootpath" : "~/Documents/projets_en_cours/SteveOctaneTrio/_Machines/Changlier/changlier_github",
 				"patcherrelativepath" : ".",
 				"type" : "JSON",
 				"implicit" : 1
