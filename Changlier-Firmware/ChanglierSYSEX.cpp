@@ -1,4 +1,7 @@
+#include "Changlier.h"
 #include "ChanglierSYSEX.h"
+#include "ChanglierOTA.h"
+#include "ChanglierBLE.h"
 
 void send_servo_data(int channel) {
 	const int send_servo_data_reply_length = 15;

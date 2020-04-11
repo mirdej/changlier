@@ -2,6 +2,21 @@
 #include "ChanglierSYSEX.h"
 #include "ChanglierOTA.h"
 
+
+
+BLECharacteristic *pCharacteristic;
+bool deviceConnected;
+
+uint8_t midiPacket[] = {
+   0x80,  // header
+   0x80,  // timestamp, not implemented 
+   0x00,  // status
+   0x3c,  // 0x3c == 60 == middle c
+   0x00   // velocity
+};
+
+
+
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
       deviceConnected = true;
@@ -230,4 +245,46 @@ void bluetooth_init() {
 	BLEAdvertising *pAdvertising = pServer->getAdvertising();
 	pAdvertising->addServiceUUID(pService->getUUID());
 	pAdvertising->start();
+}
+
+
+
+//----------------------------------------------------------------------------------------
+//																				Note ON
+
+void send_midi_note_on(char note, char velocity) {
+		
+	midiPacket[2] = 0x90; // note on, channel 0
+	midiPacket[3] 	= note;
+	midiPacket[4] = velocity;
+						
+	pCharacteristic->setValue(midiPacket, 5); // packet, length in bytes
+	pCharacteristic->notify();
+}
+
+//----------------------------------------------------------------------------------------
+//																				Note OFF
+
+
+void send_midi_note_off(char note, char velocity){
+		
+	midiPacket[2] = 0x80; // note off, channel 0
+	midiPacket[3] 	= note;
+	midiPacket[4] = velocity;    
+						
+	pCharacteristic->setValue(midiPacket, 5); // packet, length in bytes
+	pCharacteristic->notify();
+}
+
+//----------------------------------------------------------------------------------------
+//																				Control Change
+
+
+void send_midi_control_change(char ctl, char val){
+	midiPacket[2] 	= 0xB0; 
+	midiPacket[3] 	= ctl;
+	midiPacket[4] 	= val;    // velocity
+	
+	pCharacteristic->setValue(midiPacket, 5); // packet, length in bytes
+	pCharacteristic->notify();
 }

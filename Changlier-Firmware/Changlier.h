@@ -145,9 +145,6 @@ extern unsigned long last_packet;
 
 extern unsigned int debounce_time;
 
-extern BLECharacteristic *pCharacteristic;
-extern bool deviceConnected;
-
 extern int battery_max_ad, battery_min_ad;
 extern int battery_low_ad;
 extern int battery_monitor_interval;

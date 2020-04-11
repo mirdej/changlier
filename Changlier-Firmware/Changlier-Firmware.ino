@@ -1,4 +1,4 @@
-const char * version = "2020-04-11.1";
+const char * version = "2020-04-11.3";
 
 //----------------------------------------------------------------------------------------
 //
@@ -34,62 +34,48 @@ const char 	PIN_V_SENS				= 35;
 
 //========================================================================================
 //----------------------------------------------------------------------------------------
-//																				GLOBALS
-Preferences                             preferences;
-ServoEasing 							myservo[NUM_SERVOS];
-Timer									t;
+//																	GLOBALS
+Preferences                 preferences;
+ServoEasing 				myservo[NUM_SERVOS];
+Timer						t;
 
-int	hardware_version;
+int							hardware_version;
 
-CRGB									statusled[1];
-CRGB                                    pixels[NUM_PIXELS];
-CHSV									colors[NUM_PIXELS];
+CRGB                        pixels[NUM_PIXELS];
+CHSV						colors[NUM_PIXELS];
 
-String 									hostname;
+String 						hostname;
 
-int										dmx_address;
+int							dmx_address;
 
-float	servo_position[NUM_SERVOS];
+unsigned  					parking_mode;
 
-unsigned  parking_mode;
+unsigned int 				dmx_detach[DMX_CHANNELS];
 
-unsigned int dmx_detach[DMX_CHANNELS];
+unsigned long 				last_packet;
 
-unsigned long last_packet;
+unsigned int 				debounce_time;
 
-unsigned int debounce_time;
 
-BLECharacteristic *pCharacteristic;
-bool deviceConnected = false;
+int 						battery_max_ad, battery_min_ad;
+int							battery_low_ad;
+int 						battery_monitor_interval;
+long 						battery_last_check;
 
-int battery_max_ad, battery_min_ad;
-int battery_low_ad;
-int battery_monitor_interval;
-long battery_last_check;
+boolean 					isConnected;
+boolean 					leds_changed;
 
-boolean isConnected;
-boolean leds_changed;
-
-boolean	settings_changed;
-boolean		servo_channels_messed_up;
-unsigned char servo_ease[NUM_SERVOS];
-unsigned char servo_ease_distance[NUM_SERVOS];
-unsigned char servo_channel[NUM_SERVOS];
-unsigned char servo_speed[NUM_SERVOS];
-unsigned char servo_startup[NUM_SERVOS];
-unsigned char servo_minimum[NUM_SERVOS];
-unsigned char servo_maximum[NUM_SERVOS];
-unsigned char servo_detach_minimum[NUM_SERVOS];
-unsigned char servo_detach_maximum[NUM_SERVOS];
-
-uint8_t midiPacket[] = {
-   0x80,  // header
-   0x80,  // timestamp, not implemented 
-   0x00,  // status
-   0x3c,  // 0x3c == 60 == middle c
-   0x00   // velocity
-};
-
+boolean						settings_changed;
+boolean						servo_channels_messed_up;
+unsigned char 				servo_ease[NUM_SERVOS];
+unsigned char 				servo_ease_distance[NUM_SERVOS];
+unsigned char 				servo_channel[NUM_SERVOS];
+unsigned char 				servo_speed[NUM_SERVOS];
+unsigned char 				servo_startup[NUM_SERVOS];
+unsigned char 				servo_minimum[NUM_SERVOS];
+unsigned char 				servo_maximum[NUM_SERVOS];
+unsigned char 				servo_detach_minimum[NUM_SERVOS];
+unsigned char 				servo_detach_maximum[NUM_SERVOS];
 
 //========================================================================================
 //----------------------------------------------------------------------------------------
@@ -239,18 +225,11 @@ void check_buttons() {
 			if (old_button[i] != button) {
 				old_button[i] = button;
 				debounce[i] = debounce_time;
-				 midiPacket[3] 	= 5+i;
-
 				if (button) {
-					midiPacket[2] = 0x80; // note off, channel 0
-					midiPacket[4] = 0;  // velocity
+					send_midi_note_off( 5+i, 0);
 				} else {
-					midiPacket[2] = 0x90; // note on, channel 0
-					midiPacket[4] = 127;    // velocity
+					send_midi_note_on( 5+i, 127);
 				}
-			
-				pCharacteristic->setValue(midiPacket, 5); // packet, length in bytes
-				pCharacteristic->notify();
 			}
 		}
 	}
@@ -351,20 +330,10 @@ void check_battery(void) {
 	if (battery_state > 127) battery_state = 127;
 	if (battery_state < 0) battery_state = 0;
 	
-	midiPacket[2] 	= 0xB0; 
-	midiPacket[3] 	= 16;
-	midiPacket[4] 	= battery_state;    // velocity
-	
-	pCharacteristic->setValue(midiPacket, 5); // packet, length in bytes
-	pCharacteristic->notify();
+	send_midi_control_change( 16 , battery_state);
 
 	battery_last_check = millis();
 }
-
-//----------------------------------------------------------------------------------------
-//																				Enable Wifi for OTA updates
-
-
 
 
 //========================================================================================
@@ -397,11 +366,9 @@ void setup(){
 	bluetooth_init() ;
 
 	FastLED.addLeds<SK6812, PIN_PIXELS, RGB>(pixels, NUM_PIXELS);
-//	FastLED.addLeds<SK6812, PIN_STATUS_PIX, RGB>(statusled, 1);
 
 	for (int hue = 0; hue < 360; hue++) {
     	fill_rainbow( pixels, NUM_PIXELS, hue, 7);
-	//	statusled[0].setHSV(hue,127,127);
 	    delay(3);
     	FastLED.show(); 
   	}
