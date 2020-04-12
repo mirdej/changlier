@@ -15,9 +15,6 @@ const char * version = "2020-04-12.0";
 //----------------------------------------------------------------------------------------
 
 #include "Changlier.h"
-#include "ChanglierSYSEX.h"
-#include "ChanglierOTA.h"
-#include "ChanglierBLE.h"
 
 // .............................................................................Pins 
 
@@ -26,10 +23,6 @@ const char 	servo_pin[] 			= {32,33,25,26,27,14};
 const char  note_pin[]				= {22,21,23,19};
 const char	PIN_PIXELS				= 13;
 const char	PIN_ENABLE_SERVOS1_4	= 15;
-const char 	NUM_SERVOS				= 6;
-const char	NUM_NOTES				= 4;
-const char	NUM_PIXELS				= 6;
-const char	PIN_STATUS_PIX			= 1;
 const char 	PIN_V_SENS				= 35;
 
 
@@ -49,7 +42,6 @@ void handle_control_change(char ctl, char val) {
 
 	if (idx >= 0) {
 		if (idx < NUM_SERVOS) {					// channels 1 - 6:	 	control servos
-			//servo_val_raw[idx] = val;
 			servo_control(idx,val);
 		} else if (idx == 6) { 
 			if (hardware_version >= HARDWARE_VERSION_20200303_VD) {
@@ -107,8 +99,14 @@ void check_buttons() {
 				debounce[i] = debounce_time;
 				if (button) {
 					send_midi_note_off( 5+i, 0);
+					if (hostname == "Manu") {
+						led_control(i+10,0);
+					}
 				} else {
 					send_midi_note_on( 5+i, 127);
+					if (hostname == "Manu") {
+						led_control(i+10,127);
+					}
 				}
 			}
 		}

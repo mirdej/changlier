@@ -24,15 +24,26 @@
 #include <Timer.h>
 #include <FastLED.h>
 
+#include "ChanglierSYSEX.h"
+#include "ChanglierOTA.h"
+#include "ChanglierBLE.h"
+
 
 //========================================================================================
 //----------------------------------------------------------------------------------------
 //																				DEFINES
 
+#define NUM_SERVOS				6
+#define	NUM_NOTES				4
+#define	NUM_PIXELS				6
+
 #define	DMX_DETACH_TIME			10
 #define	DMX_CHANNELS			20
 
 #define SYSEX_NOP				0
+
+#define SYSEX_GET_HW_VERSION	8
+#define SYSEX_SET_HW_VERSION	9
 
 #define SYSEX_GET_VERSION		10
 #define SYSEX_GET_DMX_ADDRESS	11
@@ -113,9 +124,6 @@ extern const char 	servo_pin[] ;
 extern const char  	note_pin[];	
 extern const char	PIN_PIXELS;
 extern const char	PIN_ENABLE_SERVOS1_4;
-extern const char 	NUM_SERVOS;
-extern const char	NUM_NOTES;
-extern const char	NUM_PIXELS;
 extern const char	PIN_STATUS_PIX;
 extern const char 	PIN_V_SENS;
 
