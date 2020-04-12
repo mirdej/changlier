@@ -3,6 +3,59 @@
 #include "ChanglierOTA.h"
 #include "ChanglierBLE.h"
 
+
+//========================================================================================
+//----------------------------------------------------------------------------------------
+//																	GLOBALS
+Preferences                 preferences;
+ServoEasing 				myservo[NUM_SERVOS];
+Timer						t;
+
+int							hardware_version;
+
+CRGB                        pixels[NUM_PIXELS];
+CHSV						colors[NUM_PIXELS];
+
+String 						hostname;
+
+int							dmx_address;
+
+unsigned  					parking_mode;
+
+unsigned int 				dmx_detach[DMX_CHANNELS];
+
+unsigned long 				last_packet;
+
+unsigned int 				debounce_time;
+
+
+int 						battery_max_ad, battery_min_ad;
+int							battery_low_ad;
+int 						battery_monitor_interval;
+long 						battery_last_check;
+
+boolean 					isConnected;
+boolean 					leds_changed;
+
+boolean						settings_changed;
+boolean						servo_channels_messed_up;
+unsigned char 				servo_ease[NUM_SERVOS];
+unsigned char 				servo_ease_distance[NUM_SERVOS];
+unsigned char 				servo_channel[NUM_SERVOS];
+unsigned char 				servo_speed[NUM_SERVOS];
+unsigned char 				servo_startup[NUM_SERVOS];
+unsigned char 				servo_minimum[NUM_SERVOS];
+unsigned char 				servo_maximum[NUM_SERVOS];
+unsigned char 				servo_detach_minimum[NUM_SERVOS];
+unsigned char 				servo_detach_maximum[NUM_SERVOS];
+
+//========================================================================================
+//----------------------------------------------------------------------------------------
+//																				IMPLEMENTATION
+
+
+
+
 void set_limits(char channel) {
 	if (channel < NUM_SERVOS) {
 		Serial.print("Servo ");
@@ -88,7 +141,7 @@ void read_preferences() {
      
 	debounce_time = preferences.getInt("debounce_time",50);
 
-	hardware_version = HARDWARE_VERSION_20200303_VD;
+	hardware_version = preferences.getInt("hardware_version",HARDWARE_VERSION_20200303);
 
 	battery_max_ad = preferences.getInt("battery_max_ad",2048);
 	battery_min_ad = preferences.getInt("battery_min_ad",1024);
@@ -205,4 +258,193 @@ void write_settings() {
 
 	preferences.end();
 	Serial.println("Settings written");
+}
+
+
+//----------------------------------------------------------------------------------------
+//																				LEDS
+
+void update_leds() {
+
+	if ((millis() - last_packet) > 200) {digitalWrite(LED_BUILTIN,LOW);}
+	else {digitalWrite(LED_BUILTIN,HIGH); }
+
+	if (!leds_changed) return;
+	for (int i = 0; i < NUM_PIXELS; i++) {
+		pixels[i] = colors[i];
+	}
+	FastLED.show();
+	leds_changed = false;
+}
+
+//----------------------------------------------------------------------------------------
+//																				SERVOS
+
+void service_servos(){
+	if (parking_mode == PARKING_MODE_NONE) {
+		for (int i = 0; i < NUM_SERVOS; i++) {
+			if (servo_ease[i]) {
+				myservo[i].update();
+			}
+		}
+	} else {
+		boolean finished_parking = true;
+		for (int i = 0; i < NUM_SERVOS; i++) {
+			myservo[i].update();
+			if (myservo[i].isMoving()) finished_parking = false;
+		}
+
+		if (finished_parking) {
+			for (int i = 0; i< NUM_SERVOS; i++) {	
+				set_easing(i, servo_ease[i]);
+				dmx_detach[i] = DMX_DETACH_TIME;
+			}
+		
+			if (parking_mode == PARKING_MODE_DODO) detach_all();
+			parking_mode = PARKING_MODE_NONE;
+		}
+	}
+}
+
+//----------------------------------------------------------------------------------------
+//																				DMX
+
+// to prevent 'empty' DMX stream from moving all servos to their extremes, dmx is shifted up by one:
+// DMX value 0:		 	-> NOP
+// DMX value 1-128: 	-> MIDI 0-127
+// DMX value > 128:		-> NOP
+
+void check_dmx() {
+	static char old_values[DMX_CHANNELS];
+	char val , idx;
+	
+    if(DMX::IsHealthy()) {
+		last_packet = millis();	    
+		for (int i = 0; i < NUM_SERVOS; i++) {
+			if (!dmx_detach[i]) {
+				val = DMX::Read(i + dmx_address);
+				if (val < 129 && val > 0) servo_control(i ,val - 1);
+			}
+		}
+		
+		for (int i = 7; i < 16; i++) {
+			if (!dmx_detach[i]) {
+				val = DMX::Read(i + dmx_address);
+				if (val < 129 && val > 0) {
+					if (val != old_values[i]) {
+						old_values[i] = val;
+						led_control(i,val - 1);
+					}
+				}
+			}
+		}
+	} 
+}
+
+//----------------------------------------------------------------------------------------
+//																				DMX detach when MIDI arrives
+
+void check_dmx_detach(void) {
+	for (int i = 0; i < DMX_CHANNELS; i++) {
+		if (dmx_detach[i]) dmx_detach[i]--;
+	}
+}
+
+
+//----------------------------------------------------------------------------------------
+//																				Check Battery voltage
+
+void check_battery(void) {
+		if (hardware_version >=  HARDWARE_VERSION_20200303_V) {
+			if (battery_monitor_interval) {
+				if ((millis() - battery_last_check) > battery_monitor_interval) { 
+					int battery_state = analogRead(PIN_V_SENS);
+					battery_state = map (battery_state,battery_min_ad,battery_max_ad,1,127);
+					if (battery_state > 127) battery_state = 127;
+					if (battery_state < 0) battery_state = 0;
+	
+					send_midi_control_change( 16 , battery_state);
+
+					battery_last_check = millis();
+				}
+			}
+		}
+}
+
+
+//----------------------------------------------------------------------------------------
+//																				Control
+
+
+void park(boolean detach) {
+	for (int i = 0; i< NUM_SERVOS; i++) {
+		if (!myservo[i].attached()) myservo[i].attach(servo_pin[i]);
+		if (servo_ease[i] < 4) set_easing(i, 4);
+		myservo[i].startEaseTo(servo_startup[i], servo_speed[i] / 2);
+	}
+	
+	if (detach)		parking_mode = PARKING_MODE_DODO;
+	else 			parking_mode = PARKING_MODE_PARK;
+}
+
+void detach_all() {
+	for (int i = 0; i< NUM_SERVOS; i++) {
+		myservo[i].detach();
+	}
+}
+
+void attach_all() {
+	for (int i = 0; i< NUM_SERVOS; i++) {
+		myservo[i].attach(servo_pin[i]);
+	}
+}
+
+void led_control(char idx, char val) {
+	if (idx < 7 ) return;
+	if (idx == 7) { 					// channel 8:			global hue
+		for (int i = 0; i < NUM_PIXELS; i++) {
+			colors[i].hue = 2 * val;
+			leds_changed = true;
+		}
+	} else if (idx == 8) { 					// channel 9:			global saturation
+		for (int i = 0; i < NUM_PIXELS; i++) {
+			colors[i].saturation = 2 * val;
+			leds_changed = true;
+		}
+	} else if (idx == 9) { 					//channel 10:  			global brightness
+		for (int i = 0; i < NUM_PIXELS; i++) {
+			colors[i].value = 2 * val;
+		}					
+		leds_changed = true;
+	} else {								//channels 11-16:		individual brightness
+		if ((idx - 10) < NUM_PIXELS) {
+			colors[(idx - 10)].value = 2 * val;
+			leds_changed = true;
+		} 
+	}
+}
+
+
+void set_servo (char idx, char val) {
+	val = map(val ,0,127,servo_minimum[idx],servo_maximum[idx]);
+	if (servo_ease[idx] == 0) {
+			myservo[idx].write(val);
+	} else {
+		if (abs(val-myservo[idx].getCurrentAngle()) < servo_ease_distance[idx]) {
+			if (!myservo[idx].isMoving()) myservo[idx].write(val);
+		} else {
+			if (!myservo[idx].isMoving()) myservo[idx].startEaseTo(val,servo_speed[idx]);
+		}
+	}
+}
+
+void servo_control(char chan, char val){
+	if (servo_channels_messed_up) {
+		for (int i = 0; i < NUM_SERVOS; i++) {
+			if (servo_channel[i] == chan) {
+				set_servo(i,val);
+			}
+		}
+	} else set_servo(chan,val);
+
 }
