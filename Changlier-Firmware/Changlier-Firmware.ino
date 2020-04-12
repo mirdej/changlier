@@ -1,4 +1,4 @@
-const char * version = "2020-04-12.0";
+const char * version = "2020-04-12.1";
 
 //----------------------------------------------------------------------------------------
 //
@@ -79,6 +79,14 @@ void handle_note_off(char note, char velocity) {
 		dmx_detach[idx] = DMX_DETACH_TIME;
 		led_control(idx,0);
 	}
+}
+
+void handle_sysex(std::string rxValue) {
+	for (int i=0; i< rxValue.length(); i++) {
+		Serial.print(rxValue[i],DEC);
+		Serial.print(" ");
+	}
+	Serial.println(); 
 }
 
 

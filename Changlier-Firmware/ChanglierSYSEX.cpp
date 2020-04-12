@@ -3,6 +3,172 @@
 #include "ChanglierOTA.h"
 #include "ChanglierBLE.h"
 
+
+void handle_sysex_builtin(std::string rxValue) {
+	char command = rxValue[4];
+	char len = rxValue[5];
+	char channel = rxValue[6]-1;
+	String new_name = "";
+
+	switch (command) {
+		case SYSEX_NOP:
+			Serial.print("NOP");
+			break;								
+		case SYSEX_NAMECHANGE:
+			Serial.println("Attempt name change");
+			if (len > rxValue.length() - 8) {
+				Serial.println("PARSE ERROR: Incorrect length");
+				Serial.print(len,DEC);
+				Serial.print(" ");
+				Serial.print(rxValue.length(),DEC);
+
+			} else {
+				for (int i = 0; i < len; i++) {
+					char in = rxValue[i + 6];
+					if ((in > 31) && (in < 123)) {
+						new_name += in;
+					} else {
+						Serial.println("PARSE ERROR: Forbidden char");
+					}
+				}
+				Serial.print("Change name to: ");
+				Serial.println(new_name);
+				preferences.begin("changlier", false);
+				preferences.putString("hostname",new_name);
+				preferences.end();
+			}
+			break;
+		case SYSEX_SET_SSID:
+			if (len > rxValue.length() - 8) {
+				Serial.println("PARSE ERROR: Incorrect length");
+				Serial.print(len,DEC);
+				Serial.print(" ");
+				Serial.print(rxValue.length(),DEC);
+
+			} else {
+				for (int i = 0; i < len; i++) {
+					char in = rxValue[i + 6];
+					if ((in > 31) && (in < 123)) {
+						new_name += in;
+					} else {
+						Serial.println("PARSE ERROR: Forbidden char");
+					}
+				}
+				preferences.begin("changlier", false);
+				preferences.putString("ssid",new_name);
+				preferences.end();
+			}
+			break;
+		case SYSEX_SET_PASSWORD:
+			if (len > rxValue.length() - 8) {
+				Serial.println("PARSE ERROR: Incorrect length");
+				Serial.print(len,DEC);
+				Serial.print(" ");
+				Serial.print(rxValue.length(),DEC);
+
+			} else {
+				for (int i = 0; i < len; i++) {
+					char in = rxValue[i + 6];
+					if ((in > 31) && (in < 123)) {
+						new_name += in;
+					} else {
+						Serial.println("PARSE ERROR: Forbidden char");
+					}
+				}
+				preferences.begin("changlier", false);
+				preferences.putString("password",new_name);
+				preferences.end();
+			}
+			break;
+		case SYSEX_START_WIFI:
+			enable_wifi();
+		case SYSEX_CLEAR_MIN_MAX:
+			if (channel < NUM_SERVOS) {
+					servo_minimum[channel] = 0;
+					servo_maximum[channel] = 180;
+					set_limits(channel);
+			}
+			break;
+		case SYSEX_SET_MINIMUM_HERE:
+			if (channel < NUM_SERVOS) {
+				servo_minimum[channel] = myservo[channel].read();
+				set_limits(channel);
+			}
+			break;
+		case SYSEX_SET_MAXIMUM_HERE:
+			if (channel < NUM_SERVOS) {
+				servo_maximum[channel] = myservo[channel].read();
+				set_limits(channel);
+			}
+			break;
+		case SYSEX_INVERT_MIN_MAX:
+			if (channel < NUM_SERVOS) {
+				char old_min = servo_minimum[channel];
+				servo_minimum[channel] = servo_maximum[channel];
+				servo_maximum[channel] = old_min;
+				set_limits(channel);
+			}
+			break;
+		case SYSEX_SEND_SERVODATA:
+			if (channel < NUM_SERVOS) {
+				send_servo_data(channel);
+			}
+			break;
+		case SYSEX_GET_VERSION:
+			send_version();
+			break;
+		case SYSEX_GET_DMX_ADDRESS:
+			send_dmx_address();
+			break;
+		case SYSEX_GET_DEBOUNCE:
+			send_debounce_time();
+			break;
+		case SYSEX_SET_HW_VERSION:
+			hardware_version = rxValue[6];
+			preferences.begin("changlier", false);
+			preferences.putInt("hardware_version",hardware_version);
+			preferences.end();
+		
+		case SYSEX_SET_DMX_ADDRESS:
+			dmx_address = rxValue[6] << 7;
+			dmx_address |= rxValue[7];
+			if (dmx_address > 490) dmx_address = 490;
+			Serial.print("DMX Address: ");
+			Serial.println(dmx_address);
+			
+			preferences.begin("changlier", false);
+			preferences.putInt("dmx_address",dmx_address);
+			preferences.end();
+
+			send_dmx_address();
+			break;
+		case SYSEX_SET_DEBOUNCE:
+			debounce_time = rxValue[6] << 7;
+			debounce_time |= rxValue[7];
+
+			Serial.print("Debounce Time: ");
+			Serial.println(debounce_time);
+			
+			preferences.begin("changlier", false);
+			preferences.putInt("debounce_time",debounce_time);
+			preferences.end();
+
+			send_debounce_time();
+			break;
+		case SYSEX_GET_PARAM:
+			get_param(channel,rxValue[7]);
+			break;
+		case SYSEX_SET_PARAM:
+			set_param(channel,rxValue[7], (rxValue[8] << 7) | rxValue[9]);
+			break;
+		default:
+			handle_sysex(rxValue);
+			break;
+	}
+}
+
+
+
 void send_servo_data(int channel) {
 	const int send_servo_data_reply_length = 15;
 	uint8_t packet[send_servo_data_reply_length];
@@ -32,7 +198,7 @@ void send_servo_data(int channel) {
 }
 
 void send_version() {
-	const int send_version_reply_length = 21;
+	const int send_version_reply_length = 22;
 	uint8_t packet[send_version_reply_length];
 	
 //	Serial.print("Send: ");
@@ -48,9 +214,10 @@ void send_version() {
 	for (int i = 0; i < 12; i++) {
 		packet[6+i] = version[i];
 	}
-		
-	packet[19] = 0x80; // fake checksum
-	packet[20] = 0xF7; 	// end of sysex
+
+	packet[19] = hardware_version;
+	packet[20] = 0x80; // fake checksum
+	packet[21] = 0xF7; 	// end of sysex
 
    pCharacteristic->setValue(packet, send_version_reply_length); // packet, length in bytes)
    pCharacteristic->notify();

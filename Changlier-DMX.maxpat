@@ -9,7 +9,7 @@
 			"modernui" : 1
 		}
 ,
-		"rect" : [ 110.0, 136.0, 1279.0, 669.0 ],
+		"rect" : [ 109.0, 136.0, 1279.0, 669.0 ],
 		"bgcolor" : [ 0.32549, 0.345098, 0.372549, 1.0 ],
 		"editing_bgcolor" : [ 0.239216, 0.254902, 0.278431, 1.0 ],
 		"bglocked" : 0,
@@ -97,7 +97,7 @@
 							"modernui" : 1
 						}
 ,
-						"rect" : [ 685.0, 828.0, 637.0, 222.0 ],
+						"rect" : [ 685.0, 828.0, 985.0, 533.0 ],
 						"bgcolor" : [ 1.0, 1.0, 1.0, 1.0 ],
 						"bglocked" : 0,
 						"openinpresentation" : 1,
@@ -127,6 +127,20 @@
 						"subpatcher_template" : "standard",
 						"visible" : 1,
 						"boxes" : [ 							{
+								"box" : 								{
+									"id" : "obj-20",
+									"maxclass" : "message",
+									"numinlets" : 2,
+									"numoutlets" : 1,
+									"outlettype" : [ "" ],
+									"patching_rect" : [ 459.0, 547.0, 115.0, 22.0 ],
+									"presentation_rect" : [ 459.0, 547.0, 0.0, 0.0 ],
+									"style" : "",
+									"text" : "url http://Manu.local"
+								}
+
+							}
+, 							{
 								"box" : 								{
 									"id" : "obj-36",
 									"maxclass" : "message",
@@ -166,7 +180,6 @@
 							}
 , 							{
 								"box" : 								{
-									"active" : 0,
 									"fontsize" : 14.0,
 									"id" : "obj-29",
 									"maxclass" : "textbutton",
@@ -185,14 +198,14 @@
 , 							{
 								"box" : 								{
 									"id" : "obj-28",
-									"linecount" : 4,
+									"linecount" : 5,
 									"maxclass" : "message",
 									"numinlets" : 2,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
 									"patching_rect" : [ 448.0, 427.0, 50.0, 76.0 ],
 									"style" : "",
-									"text" : "url http://Fred.local/restart"
+									"text" : "url http://Manu.local/restart"
 								}
 
 							}
@@ -316,14 +329,14 @@
 , 							{
 								"box" : 								{
 									"id" : "obj-17",
-									"linecount" : 3,
+									"linecount" : 4,
 									"maxclass" : "message",
 									"numinlets" : 2,
 									"numoutlets" : 1,
 									"outlettype" : [ "" ],
 									"patching_rect" : [ 314.0, 383.0, 50.0, 62.0 ],
 									"style" : "",
-									"text" : "url http://Fred.local"
+									"text" : "url http://Manu.local"
 								}
 
 							}
@@ -363,7 +376,7 @@
 									"outlettype" : [ "" ],
 									"patching_rect" : [ 243.0, 265.0, 50.0, 49.0 ],
 									"style" : "",
-									"text" : "\"Fred Bluetooth\""
+									"text" : "\"Manu Bluetooth\""
 								}
 
 							}
@@ -392,7 +405,7 @@
 									"presentation" : 1,
 									"presentation_rect" : [ 6.0, 59.0, 564.0, 97.0 ],
 									"rendermode" : 0,
-									"url" : "http://away.local/"
+									"url" : "http://manu.local/"
 								}
 
 							}
@@ -411,6 +424,7 @@
 							}
 , 							{
 								"box" : 								{
+									"active" : 0,
 									"fontsize" : 14.0,
 									"id" : "obj-8",
 									"maxclass" : "textbutton",
@@ -781,6 +795,7 @@
 							}
 , 							{
 								"box" : 								{
+									"active" : 0,
 									"fontsize" : 14.0,
 									"id" : "obj-162",
 									"maxclass" : "textbutton",
@@ -1277,6 +1292,13 @@
 								"patchline" : 								{
 									"destination" : [ "obj-68", 0 ],
 									"source" : [ "obj-2", 0 ]
+								}
+
+							}
+, 							{
+								"patchline" : 								{
+									"destination" : [ "obj-10", 0 ],
+									"source" : [ "obj-20", 0 ]
 								}
 
 							}
@@ -1787,6 +1809,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-201",
 					"maxclass" : "textbutton",
@@ -2192,14 +2215,14 @@
 , 											{
 												"box" : 												{
 													"id" : "obj-13",
-													"linecount" : 6,
+													"linecount" : 7,
 													"maxclass" : "message",
 													"numinlets" : 2,
 													"numoutlets" : 1,
 													"outlettype" : [ "" ],
 													"patching_rect" : [ 146.0, 188.0, 50.0, 102.0 ],
 													"style" : "",
-													"text" : "50 48 50 48 45 48 52 45 49 49 46 49"
+													"text" : "50 48 50 48 45 48 52 45 49 50 46 48 0 3"
 												}
 
 											}
@@ -5838,6 +5861,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-199",
 					"maxclass" : "textbutton",
@@ -5868,6 +5892,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-197",
 					"maxclass" : "textbutton",
@@ -5898,6 +5923,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-195",
 					"maxclass" : "textbutton",
@@ -5928,6 +5954,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-193",
 					"maxclass" : "textbutton",
@@ -6025,6 +6052,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-185",
 					"maxclass" : "textbutton",
@@ -7197,6 +7225,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontsize" : 14.0,
 					"id" : "obj-162",
 					"maxclass" : "textbutton",
@@ -7557,7 +7586,7 @@
 					"presentation" : 1,
 					"presentation_rect" : [ 790.0, 91.0, 113.0, 18.0 ],
 					"style" : "",
-					"text" : "Fred"
+					"text" : "Manu"
 				}
 
 			}
@@ -10042,8 +10071,7 @@
 					"patching_rect" : [ 966.0, 524.0, 50.0, 22.0 ],
 					"presentation" : 1,
 					"presentation_rect" : [ 679.0, 607.0, 25.5, 22.0 ],
-					"style" : "",
-					"text" : "0"
+					"style" : ""
 				}
 
 			}
@@ -10067,8 +10095,7 @@
 					"patching_rect" : [ 907.0, 524.0, 50.0, 22.0 ],
 					"presentation" : 1,
 					"presentation_rect" : [ 679.0, 577.0, 29.0, 22.0 ],
-					"style" : "",
-					"text" : "247"
+					"style" : ""
 				}
 
 			}
@@ -10261,7 +10288,7 @@
 					"presentation" : 1,
 					"presentation_rect" : [ 20.0, 129.5, 204.0, 21.0 ],
 					"style" : "",
-					"text" : "Firmware version: 2020-04-11.1"
+					"text" : "Firmware version: 2020-04-12.0"
 				}
 
 			}
@@ -10302,8 +10329,7 @@
 					"patching_rect" : [ 298.0, 691.0, 150.0, 63.0 ],
 					"presentation" : 1,
 					"presentation_rect" : [ 21.0, 81.0, 719.0, 63.0 ],
-					"style" : "",
-					"text" : "Fred"
+					"style" : ""
 				}
 
 			}
@@ -10710,6 +10736,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-49",
 					"maxclass" : "textbutton",

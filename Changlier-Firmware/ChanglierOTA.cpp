@@ -80,7 +80,7 @@ void enable_wifi() {
 		  server.on("/restart", HTTP_GET, []() {
 			server.sendHeader("Connection", "close");
 			server.send(200, "text/plain", "Rebooting");
-			Serial.println("Wifi OK");
+			delay(200);
 			ESP.restart();
 		  });
 		
