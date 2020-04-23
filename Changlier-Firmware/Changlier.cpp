@@ -28,7 +28,7 @@ unsigned long 				last_packet;
 
 unsigned int 				debounce_time;
 
-
+int 						battery_state;
 int 						battery_max_ad, battery_min_ad;
 int							battery_low_ad;
 int 						battery_monitor_interval;
@@ -49,6 +49,7 @@ unsigned char 				servo_maximum[NUM_SERVOS];
 unsigned char 				servo_detach_minimum[NUM_SERVOS];
 unsigned char 				servo_detach_maximum[NUM_SERVOS];
 
+int							activity;
 //========================================================================================
 //----------------------------------------------------------------------------------------
 //																				IMPLEMENTATION
@@ -79,6 +80,10 @@ void print_settings() {
 		Serial.println("======================================");
 		Serial.print("Device Name: ");
 		Serial.println(hostname);
+		Serial.print("Firmware: ");
+		Serial.println(version);
+		Serial.print("Hardware: ");
+		Serial.println(hardware_version);
 		Serial.print("DMX Address: ");
 		Serial.println(dmx_address);
 		Serial.println("--------------");
@@ -132,8 +137,6 @@ void read_preferences() {
 	dmx_address = preferences.getInt("dmx_address",1);
 	wifi_enabled = preferences.getInt("wifi",1);
 	
-	preferences.putString("ssid","Anymair");
-	preferences.putString("password","Mot de passe pas complique");
     ssid = preferences.getString("ssid");
     password = preferences.getString("password");
     
@@ -141,7 +144,7 @@ void read_preferences() {
      
 	debounce_time = preferences.getInt("debounce_time",50);
 
-	hardware_version = preferences.getInt("hardware_version",HARDWARE_VERSION_20200303);
+	hardware_version = preferences.getInt("hw",HARDWARE_VERSION_20200303);
 
 	battery_max_ad = preferences.getInt("battery_max_ad",2048);
 	battery_min_ad = preferences.getInt("battery_min_ad",1024);
@@ -269,12 +272,24 @@ void update_leds() {
 	if ((millis() - last_packet) > 200) {digitalWrite(LED_BUILTIN,LOW);}
 	else {digitalWrite(LED_BUILTIN,HIGH); }
 
-	if (!leds_changed) return;
-	for (int i = 0; i < NUM_PIXELS; i++) {
-		pixels[i] = colors[i];
+	if (hardware_version < 6) {
+		if (!leds_changed) return;
+		for (int i = 0; i < NUM_PIXELS; i++) {
+			pixels[i] = colors[i];
+		}
+	} else {
+		if (activity)  activity +=10;
+		if (activity > 255)  activity = 255;
+		pixels[0].r =  battery_state;				// green actually
+		pixels[0].g =  (127-battery_state);			// red
+		pixels[0].b = activity;
+		for (int i = 1; i < NUM_PIXELS; i++) {
+			pixels[i] = colors[i-1];
+		}
 	}
 	FastLED.show();
 	leds_changed = false;
+	activity = 0;
 }
 
 //----------------------------------------------------------------------------------------
@@ -323,6 +338,11 @@ void check_dmx() {
 		for (int i = 0; i < NUM_SERVOS; i++) {
 			if (!dmx_detach[i]) {
 				val = DMX::Read(i + dmx_address);
+				
+					if (val != old_values[i]) {
+						old_values[i] = val;
+						activity++;
+					}
 				if (val < 129 && val > 0) servo_control(i ,val - 1);
 			}
 		}
@@ -333,6 +353,7 @@ void check_dmx() {
 				if (val < 129 && val > 0) {
 					if (val != old_values[i]) {
 						old_values[i] = val;
+						activity++;
 						led_control(i,val - 1);
 					}
 				}
@@ -358,7 +379,7 @@ void check_battery(void) {
 		if (hardware_version >=  HARDWARE_VERSION_20200303_V) {
 			if (battery_monitor_interval) {
 				if ((millis() - battery_last_check) > battery_monitor_interval) { 
-					int battery_state = analogRead(PIN_V_SENS);
+					battery_state = analogRead(PIN_V_SENS);
 					battery_state = map (battery_state,battery_min_ad,battery_max_ad,1,127);
 					if (battery_state > 127) battery_state = 127;
 					if (battery_state < 0) battery_state = 0;
@@ -447,4 +468,33 @@ void servo_control(char chan, char val){
 		}
 	} else set_servo(chan,val);
 
+}
+
+
+
+
+void check_settings_changed() {
+	if 	(settings_changed) write_settings();
+	settings_changed = false;
+}
+
+void set_easing(char chan, char val) {
+	
+	switch (val) {
+		case 1:
+			myservo[chan].setEasingType(EASE_LINEAR);
+			break;
+		case 2:
+			myservo[chan].setEasingType(EASE_QUADRATIC_IN_OUT);
+			break;
+		case 3:
+			myservo[chan].setEasingType(EASE_CUBIC_IN_OUT);
+			break;
+		case 4:
+			myservo[chan].setEasingType(EASE_QUARTIC_IN_OUT);
+			break;
+		default:
+			break;
+	}
+	
 }

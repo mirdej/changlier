@@ -35,7 +35,7 @@
 
 #define NUM_SERVOS				6
 #define	NUM_NOTES				4
-#define	NUM_PIXELS				6
+#define	NUM_PIXELS				7
 
 #define	DMX_DETACH_TIME			10
 #define	DMX_CHANNELS			20
@@ -59,6 +59,7 @@
 #define	HARDWARE_VERSION_20200303		 3			// eurocircuits, matte finish, vanilla
 #define	HARDWARE_VERSION_20200303_V		 4			// eurocircuits, matte finish, with voltage sensor mod
 #define	HARDWARE_VERSION_20200303_VD	 5			// eurocircuits, matte finish, with voltage sensor mod + detach on 74HC244
+#define	HARDWARE_VERSION_20200415		 6			// pcbway with voltage sensor and detach
 
 
 #define SERVICE_UUID        "03b80e5a-ede8-4b33-a751-6ce34ec4c700"
@@ -73,6 +74,7 @@ extern const char 	servo_pin[] ;
 extern const char  	note_pin[];	
 extern const char	PIN_PIXELS;
 extern const char	PIN_ENABLE_SERVOS1_4;
+extern const char	PIN_ENABLE_SERVOS5_6;
 extern const char	PIN_STATUS_PIX;
 extern const char 	PIN_V_SENS;
 
@@ -91,7 +93,7 @@ extern CHSV									colors[];
 extern String 									hostname;
 
 extern int										dmx_address;
-
+extern int 	activity;
 extern float	servo_position[];
 
 extern unsigned  parking_mode;

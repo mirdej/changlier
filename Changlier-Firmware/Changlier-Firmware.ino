@@ -1,4 +1,4 @@
-const char * version = "2020-04-12.1";
+const char * version = "2020-04-23.1";
 
 //----------------------------------------------------------------------------------------
 //
@@ -23,6 +23,7 @@ const char 	servo_pin[] 			= {32,33,25,26,27,14};
 const char  note_pin[]				= {22,21,23,19};
 const char	PIN_PIXELS				= 13;
 const char	PIN_ENABLE_SERVOS1_4	= 15;
+const char	PIN_ENABLE_SERVOS5_6	= 1;
 const char 	PIN_V_SENS				= 35;
 
 
@@ -81,12 +82,16 @@ void handle_note_off(char note, char velocity) {
 	}
 }
 
-void handle_sysex(std::string rxValue) {
-	for (int i=0; i< rxValue.length(); i++) {
-		Serial.print(rxValue[i],DEC);
-		Serial.print(" ");
+void handle_sysex(std::string data) {
+	for (int i=0; i< data.length(); i++) {
+		Serial.print(data[i]);
 	}
 	Serial.println(); 
+	
+	if (data == "Hallo") {
+		char reply[] = "Hello";
+		send_sysex(116, reply, 5);
+	}
 }
 
 
@@ -110,9 +115,15 @@ void check_buttons() {
 					if (hostname == "Manu") {
 						led_control(i+10,0);
 					}
+					if (hostname == "ines") {
+						led_control(i+10,0);
+					}
 				} else {
 					send_midi_note_on( 5+i, 127);
 					if (hostname == "Manu") {
+						led_control(i+10,127);
+					}
+					if (hostname == "ines") {
 						led_control(i+10,127);
 					}
 				}
@@ -141,7 +152,9 @@ void setup(){
 	
 	if (hardware_version >= HARDWARE_VERSION_20200303_VD) {
 		pinMode(PIN_ENABLE_SERVOS1_4, OUTPUT);
-		digitalWrite(PIN_ENABLE_SERVOS1_4,LOW);
+		pinMode(PIN_ENABLE_SERVOS5_6, OUTPUT);
+		digitalWrite(PIN_ENABLE_SERVOS1_4,HIGH);
+		digitalWrite(PIN_ENABLE_SERVOS5_6,HIGH);
 	}
 	
 	for (int i = 0; i< NUM_SERVOS; i++) {
@@ -178,7 +191,7 @@ void setup(){
 	t.every(1,check_buttons);	
 	t.every(10,service_servos);
 	t.every(10,check_dmx);
-	t.every(20,update_leds);
+	t.every(50,update_leds);
 	t.every(100,check_battery);
 	t.every(1000,check_dmx_detach);
 	t.every(30000,check_settings_changed);

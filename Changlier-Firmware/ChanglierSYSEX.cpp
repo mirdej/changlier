@@ -3,6 +3,8 @@
 #include "ChanglierOTA.h"
 #include "ChanglierBLE.h"
 
+//----------------------------------------------------------------------------------------
+//																				Handle SYSEX
 
 void handle_sysex_builtin(std::string rxValue) {
 	char command = rxValue[4];
@@ -115,7 +117,7 @@ void handle_sysex_builtin(std::string rxValue) {
 			}
 			break;
 		case SYSEX_GET_VERSION:
-			send_version();
+			send_sysex(SYSEX_VERSION_DATA, (char *)version, 12);
 			break;
 		case SYSEX_GET_DMX_ADDRESS:
 			send_dmx_address();
@@ -124,11 +126,18 @@ void handle_sysex_builtin(std::string rxValue) {
 			send_debounce_time();
 			break;
 		case SYSEX_SET_HW_VERSION:
-			hardware_version = rxValue[6];
+			hardware_version = rxValue[6] << 7;
+			hardware_version |= rxValue[7];
+
+			Serial.print("Hardware Version: ");
+			Serial.println(hardware_version);
 			preferences.begin("changlier", false);
-			preferences.putInt("hardware_version",hardware_version);
+			preferences.putInt("hw",hardware_version);
 			preferences.end();
-		
+			break;
+		case SYSEX_GET_HW_VERSION:
+			send_hw_version();
+			break;
 		case SYSEX_SET_DMX_ADDRESS:
 			dmx_address = rxValue[6] << 7;
 			dmx_address |= rxValue[7];
@@ -161,121 +170,96 @@ void handle_sysex_builtin(std::string rxValue) {
 		case SYSEX_SET_PARAM:
 			set_param(channel,rxValue[7], (rxValue[8] << 7) | rxValue[9]);
 			break;
+		case SYSEX_CUSTOM:
+			handle_sysex(rxValue.substr(6, rxValue.length()-9 ));
 		default:
-			handle_sysex(rxValue);
 			break;
 	}
 }
 
+//----------------------------------------------------------------------------------------
+//																				Send SYSEX
 
+
+void send_sysex(char command, char * data, int len) {
+	int packet_length = len + 8;
+	char packet[packet_length];
+	
+	Serial.print("Send Sysex ");	
+	
+	packet[0] = 0x80;  // header
+	packet[1] = 0x80;  // timestamp, not implemented 
+	packet[2] = 0xF0;  // SYSEX
+	packet[3] = 0x7D;  // Homebrew Device
+	packet[4] = command;
+	packet[5] = len;
+	
+	for (int i = 0; i < len; i++) {
+		packet[6 + i] = data[i];
+	}
+	
+	packet[len + 6] = 0x80; // fake checksum
+	packet[len + 7] = 0xF7; 	// end of sysex
+	
+	for (int i = 0; i < packet_length; i++) {		
+		Serial.print(packet[i],DEC);
+		Serial.print(" ");
+	}
+	Serial.println(); 
+
+	pCharacteristic->setValue((uint8_t *)packet, packet_length); // packet, length in bytes)
+	pCharacteristic->notify();
+}
+
+
+//----------------------------------------------------------------------------------------
+//																				Servo Data
 
 void send_servo_data(int channel) {
-	const int send_servo_data_reply_length = 15;
-	uint8_t packet[send_servo_data_reply_length];
+	char packet[7];
 	
-//	Serial.print("Send: ");
-	
-	packet[0] = 0x80;  // header
-	packet[1] = 0x80;  // timestamp, not implemented 
-	packet[2] = 0xF0;  // SYSEX
-	packet[3] = 0x7D;  // Homebrew Device
-	
-	packet[4] = SYSEX_SERVODATA;
-	packet[5] = 7;					//length
-	packet[6] = channel;
-	packet[7] = servo_minimum[channel] >> 1;
-	packet[8] = servo_minimum[channel] & 1;
-	packet[9] = myservo[channel].read() >> 1;
-	packet[10] = myservo[channel].read() & 1;
-	packet[11] = servo_maximum[channel] >> 1;
-	packet[12] = servo_maximum[channel] & 1;
-	
-	packet[13] = 0x80; // fake checksum
-	packet[14] = 0xF7; 	// end of sysex
-
-   pCharacteristic->setValue(packet, send_servo_data_reply_length); // packet, length in bytes)
-   pCharacteristic->notify();
+	packet[0] = channel;
+	packet[1] = servo_minimum[channel] >> 1;
+	packet[2] = servo_minimum[channel] & 1;
+	packet[3] = myservo[channel].read() >> 1;
+	packet[4] = myservo[channel].read() & 1;
+	packet[5] = servo_maximum[channel] >> 1;
+	packet[6] = servo_maximum[channel] & 1;
+	send_sysex(SYSEX_SERVODATA, packet, 7);
 }
 
-void send_version() {
-	const int send_version_reply_length = 22;
-	uint8_t packet[send_version_reply_length];
-	
-//	Serial.print("Send: ");
-	
-	packet[0] = 0x80;  // header
-	packet[1] = 0x80;  // timestamp, not implemented 
-	packet[2] = 0xF0;  // SYSEX
-	packet[3] = 0x7D;  // Homebrew Device
-	
-	packet[4] = SYSEX_VERSION_DATA;
-	packet[5] = 12;					//length
-	
-	for (int i = 0; i < 12; i++) {
-		packet[6+i] = version[i];
-	}
-
-	packet[19] = hardware_version;
-	packet[20] = 0x80; // fake checksum
-	packet[21] = 0xF7; 	// end of sysex
-
-   pCharacteristic->setValue(packet, send_version_reply_length); // packet, length in bytes)
-   pCharacteristic->notify();
-}
-
+//----------------------------------------------------------------------------------------
+//																				DMX Address
 
 void send_dmx_address() {
-	const int reply_length = 10;
-	uint8_t packet[reply_length];
-	
-	Serial.println("Send DMX Address");
-	
-	packet[0] = 0x80;  // header
-	packet[1] = 0x80;  // timestamp, not implemented 
-	packet[2] = 0xF0;  // SYSEX
-	packet[3] = 0x7D;  // Homebrew Device
-	
-	packet[4] = SYSEX_DMX_ADDRESS;
-	packet[5] = 2;					//length
-	
-	packet[6] = (dmx_address >> 7) & 0x7F;
-	packet[7] = dmx_address & 0x7F;
-		
-	packet[8] = 0x80; // fake checksum
-	packet[9] = 0xF7; 	// end of sysex
-
-   pCharacteristic->setValue(packet, reply_length); // packet, length in bytes)
-   pCharacteristic->notify();
+	char packet[2];
+	packet[0] = (dmx_address >> 7) & 0x7F;
+	packet[1] = dmx_address & 0x7F;
+	send_sysex(SYSEX_DMX_ADDRESS, packet, 2);
 }
 
+void send_hw_version() {
+	char packet[2];
+	packet[0] = (hardware_version >> 7) & 0x7F;
+	packet[1] = hardware_version & 0x7F;
+	send_sysex(SYSEX_HW_VERSION, packet, 2);
+}
+
+//----------------------------------------------------------------------------------------
+//																				Debounce
 
 void send_debounce_time() {
-	const int reply_length = 10;
-	uint8_t packet[reply_length];
-	
-	Serial.println("Send Debounce Time");
-	
-	packet[0] = 0x80;  // header
-	packet[1] = 0x80;  // timestamp, not implemented 
-	packet[2] = 0xF0;  // SYSEX
-	packet[3] = 0x7D;  // Homebrew Device
-	
-	packet[4] = SYSEX_DEBOUNCE;
-	packet[5] = 2;					//length
-	
-	packet[6] = (debounce_time >> 7) & 0x7F;
-	packet[7] = debounce_time & 0x7F;
-		
-	packet[8] = 0x80; // fake checksum
-	packet[9] = 0xF7; 	// end of sysex
-
-   pCharacteristic->setValue(packet, reply_length); // packet, length in bytes)
-   pCharacteristic->notify();
+	char packet[2];
+	packet[0] = (debounce_time >> 7) & 0x7F;
+	packet[1] = debounce_time & 0x7F;
+	send_sysex(SYSEX_DEBOUNCE, packet, 2);
 }
 
+//----------------------------------------------------------------------------------------
+//																				Get Param
 
 void get_param(int channel, int param){
-//	Serial.print("Get Param ");	Serial.print(param);	Serial.print(" for channel ");Serial.println(channel);
+
 	int return_val;
 	switch (param) {
 		case  PARAM_min : 
@@ -325,30 +309,21 @@ void get_param(int channel, int param){
 			return;
 	}
 
-	const int reply_length = 12;
-	uint8_t packet[reply_length];
+	const int reply_length = 4;
+	char packet[reply_length];
 
-	packet[0] = 0x80;  // header
-	packet[1] = 0x80;  // timestamp, not implemented 
-	packet[2] = 0xF0;  // SYSEX
-	packet[3] = 0x7D;  // Homebrew Device
+	packet[0] = channel + 1;
+	packet[1] = param;
+
+	packet[2] = (return_val >> 7) & 0x7F;
+	packet[3] = return_val & 0x7F;
 	
-	packet[4] = SYSEX_PARAM_DATA;
-	packet[5] = 4;					//length
-	
-	packet[6] = channel + 1;
-	packet[7] = param;
-
-	packet[8] = (return_val >> 7) & 0x7F;
-	packet[9] = return_val & 0x7F;
-
-	packet[10] = 0x80; // fake checksum
-	packet[11] = 0xF7; 	// end of sysex
-
-   pCharacteristic->setValue(packet, reply_length); // packet, length in bytes)
-   pCharacteristic->notify();
-
+	send_sysex(SYSEX_PARAM_DATA, packet, reply_length);
 }
+
+//----------------------------------------------------------------------------------------
+//																				Set Param
+
 
 void set_param(int channel,int param, int value) {
 	//Serial.print("Set Param ");	Serial.print(param);	Serial.print(" for channel ");Serial.print(channel);Serial.print(" to value ");Serial.println(value);
@@ -430,28 +405,3 @@ void set_param(int channel,int param, int value) {
 }
 
 
-void check_settings_changed() {
-	if 	(settings_changed) write_settings();
-	settings_changed = false;
-}
-
-void set_easing(char chan, char val) {
-	
-	switch (val) {
-		case 1:
-			myservo[chan].setEasingType(EASE_LINEAR);
-			break;
-		case 2:
-			myservo[chan].setEasingType(EASE_QUADRATIC_IN_OUT);
-			break;
-		case 3:
-			myservo[chan].setEasingType(EASE_CUBIC_IN_OUT);
-			break;
-		case 4:
-			myservo[chan].setEasingType(EASE_QUARTIC_IN_OUT);
-			break;
-		default:
-			break;
-	}
-	
-}

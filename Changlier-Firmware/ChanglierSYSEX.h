@@ -18,7 +18,8 @@
 
 #define SYSEX_NOP				0
 
-//#define SYSEX_GET_HW_VERSION	8
+#define SYSEX_HW_VERSION		7
+#define SYSEX_GET_HW_VERSION	8
 #define SYSEX_SET_HW_VERSION	9
 
 #define SYSEX_GET_VERSION		10
@@ -55,6 +56,10 @@
 
 #define SYSEX_START_WIFI	100
 
+#define SYSEX_CUSTOM		126
+
+
+
 #define PARAM_min 				2
 #define PARAM_max   3
 #define PARAM_init   4
@@ -69,11 +74,11 @@
 
 
 void handle_sysex_builtin(std::string rxValue);
-
+void send_sysex(char command, char * data, int len);
 void send_servo_data(int channel);
-void send_version();
 void send_dmx_address();
 void send_debounce_time();
+void send_hw_version();
 
 void get_param(int channel, int param);
 
