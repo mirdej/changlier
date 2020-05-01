@@ -433,11 +433,11 @@ void detach_control(char val) {
 
 	if (val < 32) { 
 		digitalWrite(PIN_ENABLE_SERVOS1_4, LOW); 
-		digitalWrite(PIN_ENABLE_SERVOS5_6, LOW);				
+		digitalWrite(PIN_ENABLE_SERVOS5_6, LOW);
 	} else if ( val < 64 ) {
 		digitalWrite(PIN_ENABLE_SERVOS1_4, HIGH); 
 		digitalWrite(PIN_ENABLE_SERVOS5_6, LOW);
-	} else if ( val < 96 ){
+} else if ( val < 96 ){
 		digitalWrite(PIN_ENABLE_SERVOS1_4, LOW); 
 		digitalWrite(PIN_ENABLE_SERVOS5_6, HIGH);
 	} else {
@@ -476,6 +476,15 @@ void led_control(char idx, char val) {
 //----------------------------------------------------------------------------------------
 
 void set_servo (char idx, char val) {
+	if (hardware_version >= HARDWARE_VERSION_20200303_VD) {
+		if (idx < 4) {
+			if (digitalRead(PIN_ENABLE_SERVOS1_4)) return;
+		} else {
+			if (digitalRead(PIN_ENABLE_SERVOS5_6)) return;
+		}
+	}
+	
+
 	val = map(val ,0,127,servo_minimum[idx],servo_maximum[idx]);
 	if (servo_ease[idx] == 0) {
 			myservo[idx].write(val);
@@ -486,6 +495,7 @@ void set_servo (char idx, char val) {
 			if (!myservo[idx].isMoving()) myservo[idx].startEaseTo(val,servo_speed[idx]);
 		}
 	}
+
 }
 //----------------------------------------------------------------------------------------
 

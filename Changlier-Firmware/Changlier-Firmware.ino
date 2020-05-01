@@ -127,7 +127,7 @@ void check_buttons() {
 	}
 }
 
-void logname(char const *date,char const *time, char *buff) { 
+void makeversion(char const *date,char const *time, char *buff) { 
     int month, day, year,hour,min,sec;
     static const char month_names[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
     sscanf(date, "%s %d %d", buff, &day, &year);
@@ -142,13 +142,9 @@ void logname(char const *date,char const *time, char *buff) {
 
 void setup(){
     Serial.begin(115200);
-  Serial.print (F(__DATE__)) ;
-  Serial.print (" ") ;
-  Serial.println (F(__TIME__)) ;
-   Serial.print("log file name: ");
-  char filename[16];
-  logname(__DATE__, __TIME__, version);
-  Serial.println(version);
+
+	makeversion(__DATE__, __TIME__, version);
+
   
     pinMode(LED_BUILTIN,OUTPUT);
     digitalWrite(LED_BUILTIN,HIGH);
@@ -158,6 +154,7 @@ void setup(){
 	Serial.println("Startup");
 
 	read_preferences();
+
 	
 	if (hardware_version >= HARDWARE_VERSION_20200303_VD) {
 		pinMode(PIN_ENABLE_SERVOS1_4, OUTPUT);
