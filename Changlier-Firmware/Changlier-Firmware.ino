@@ -198,9 +198,10 @@ void setup(){
 	t.every(10,service_servos);
 	t.every(10,check_dmx);
 	t.every(50,update_leds);
+	t.every(50,live_update);
 	t.every(100,check_battery);
 	t.every(1000,check_dmx_detach);
-	t.every(30000,check_settings_changed);
+	t.every(10000,check_settings_changed);
 	digitalWrite(LED_BUILTIN,LOW);
 	Serial.println("Setup finished");
 }

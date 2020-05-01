@@ -117,6 +117,7 @@ void handle_sysex_builtin(std::string rxValue) {
 			}
 			break;
 		case SYSEX_GET_VERSION:
+			send_status_back = 1;
 			send_sysex(SYSEX_VERSION_DATA, (char *)version, 12);
 			break;
 		case SYSEX_GET_DMX_ADDRESS:
@@ -212,6 +213,7 @@ void send_sysex(char command, char * data, int len) {
 }
 
 
+
 //----------------------------------------------------------------------------------------
 //																				Servo Data
 
@@ -221,8 +223,8 @@ void send_servo_data(int channel) {
 	packet[0] = channel;
 	packet[1] = servo_minimum[channel] >> 1;
 	packet[2] = servo_minimum[channel] & 1;
-	packet[3] = myservo[channel].read() >> 1;
-	packet[4] = myservo[channel].read() & 1;
+	packet[3] = myservo[channel].getCurrentAngle() >> 1;
+	packet[4] = myservo[channel].getCurrentAngle() & 1;
 	packet[5] = servo_maximum[channel] >> 1;
 	packet[6] = servo_maximum[channel] & 1;
 	send_sysex(SYSEX_SERVODATA, packet, 7);

@@ -124,6 +124,9 @@ extern unsigned char servo_maximum[];
 extern unsigned char servo_detach_minimum[];
 extern unsigned char servo_detach_maximum[];
 
+
+extern unsigned char				send_status_back;
+
 extern uint8_t midiPacket[];
 extern char version[16];
 //========================================================================================
@@ -153,5 +156,6 @@ void service_servos();
 void check_dmx();
 void check_dmx_detach(void);
 void check_battery(void);
+void live_update();
 
 #endif

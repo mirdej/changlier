@@ -48,6 +48,9 @@ unsigned char 				servo_minimum[NUM_SERVOS];
 unsigned char 				servo_maximum[NUM_SERVOS];
 unsigned char 				servo_detach_minimum[NUM_SERVOS];
 unsigned char 				servo_detach_maximum[NUM_SERVOS];
+unsigned char 				sent_status[NUM_SERVOS + 1];
+
+unsigned char				send_status_back;
 
 int							activity;
 //========================================================================================
@@ -280,8 +283,8 @@ void update_leds() {
 	} else {
 		if (activity)  activity +=10;
 		if (activity > 255)  activity = 255;
-		pixels[0].r =  battery_state;				// green actually
-		pixels[0].g =  (127-battery_state);			// red
+		pixels[0].r =  constrain(map(battery_state,22,62,0,100),0,100);				// green actually
+		pixels[0].g =  constrain(map(battery_state,16,55,100,0),0,100);			// red
 		pixels[0].b = activity;
 		for (int i = 1; i < NUM_PIXELS; i++) {
 			pixels[i] = colors[i-1];
@@ -381,11 +384,33 @@ void check_dmx_detach(void) {
 	}
 }
 
+void live_update() {
+	char val;
+	if (send_status_back) {
+		for (int i = 0; i < NUM_SERVOS; i++) {
+			val = myservo[i].getCurrentAngle();
+			val = map(val,servo_minimum[i],servo_maximum[i],0,127);
+			if (sent_status[i] != val) {
+				sent_status[i] = val;
+				send_midi_control_change( 31 + i , val);
+
+			}
+		}
+		val = digitalRead(PIN_ENABLE_SERVOS1_4) << 1;
+		val |= digitalRead(PIN_ENABLE_SERVOS5_6);
+		if (sent_status[NUM_SERVOS] != val) {
+				sent_status[NUM_SERVOS] = val;
+				send_midi_control_change( 39 , val);
+		}
+	}	
+}
 
 //----------------------------------------------------------------------------------------
 //																				Check Battery voltage
 
 void check_battery(void) {
+
+
 		if (hardware_version >=  HARDWARE_VERSION_20200303_V) {
 			if (battery_monitor_interval) {
 				if ((millis() - battery_last_check) > battery_monitor_interval) { 
@@ -394,8 +419,10 @@ void check_battery(void) {
 					if (battery_state > 127) battery_state = 127;
 					if (battery_state < 0) battery_state = 0;
 	
-					send_midi_control_change( 16 , battery_state);
-
+					if (send_status_back) {
+						send_midi_control_change( 40 , battery_state);
+					}
+					
 					battery_last_check = millis();
 				}
 			}
@@ -437,7 +464,7 @@ void detach_control(char val) {
 	} else if ( val < 64 ) {
 		digitalWrite(PIN_ENABLE_SERVOS1_4, HIGH); 
 		digitalWrite(PIN_ENABLE_SERVOS5_6, LOW);
-} else if ( val < 96 ){
+	} else if ( val < 96 ){
 		digitalWrite(PIN_ENABLE_SERVOS1_4, LOW); 
 		digitalWrite(PIN_ENABLE_SERVOS5_6, HIGH);
 	} else {
@@ -507,7 +534,6 @@ void servo_control(char chan, char val){
 			}
 		}
 	} else set_servo(chan,val);
-
 }
 
 

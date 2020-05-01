@@ -18,6 +18,10 @@
 
 #define SYSEX_NOP				0
 
+#define SYSEX_DATA_DUMP			1
+#define SYSEX_DATA_DUMP_DATA	2
+
+
 #define SYSEX_HW_VERSION		7
 #define SYSEX_GET_HW_VERSION	8
 #define SYSEX_SET_HW_VERSION	9
