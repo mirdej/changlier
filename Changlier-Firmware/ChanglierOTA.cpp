@@ -70,6 +70,8 @@ void enable_wifi() {
 			  delay(1000);
 			}
 		  }
+		Serial.print("Hostname: ");
+		Serial.println(host);
 		Serial.println("Wifi OK");
 
 		wifi_enabled = true;

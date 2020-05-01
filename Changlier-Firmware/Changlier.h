@@ -125,7 +125,7 @@ extern unsigned char servo_detach_minimum[];
 extern unsigned char servo_detach_maximum[];
 
 extern uint8_t midiPacket[];
-extern const char * version;
+extern char version[16];
 //========================================================================================
 //----------------------------------------------------------------------------------------
 //																				prototypes
@@ -141,6 +141,7 @@ void attach_all();
 void led_control(char idx, char val);
 void set_servo (char idx, char val);
 void servo_control(char chan, char val);
+void detach_control(char val);
 void set_limits(char channel);
 void print_settings();
 void generate_default_values();

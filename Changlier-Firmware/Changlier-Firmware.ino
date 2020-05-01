@@ -1,10 +1,11 @@
-const char * version = "2020-04-23.1";
+char  version[16];
 
 //----------------------------------------------------------------------------------------
 //
 //	CHANGLIER Firmware
 //						
 //		Target MCU: DOIT ESP32 DEVKIT V1
+//		Variant: Changlier, Patrition Scheme:  Minimal SPIFFS (1.9M APP with OTA, 190kb SPIFFS)
 //		Copyright:	2019 Michael Egger, me@anyma.ch
 //		License: 	This is FREE software (as in free speech, not necessarily free beer)
 //					published under gnu GPL v.3
@@ -23,7 +24,7 @@ const char 	servo_pin[] 			= {32,33,25,26,27,14};
 const char  note_pin[]				= {22,21,23,19};
 const char	PIN_PIXELS				= 13;
 const char	PIN_ENABLE_SERVOS1_4	= 15;
-const char	PIN_ENABLE_SERVOS5_6	= 1;
+const char	PIN_ENABLE_SERVOS5_6	= 4;
 const char 	PIN_V_SENS				= 35;
 
 
@@ -44,14 +45,8 @@ void handle_control_change(char ctl, char val) {
 	if (idx >= 0) {
 		if (idx < NUM_SERVOS) {					// channels 1 - 6:	 	control servos
 			servo_control(idx,val);
-		} else if (idx == 6) { 
-			if (hardware_version >= HARDWARE_VERSION_20200303_VD) {
-				if (val > 64) {
-					digitalWrite(PIN_ENABLE_SERVOS1_4,HIGH);
-				} else {
-					digitalWrite(PIN_ENABLE_SERVOS1_4,LOW);
-				}	
-			}				
+		} else if (idx == 6) {
+			detach_control(val);
 		} else {
 			led_control(idx,val);
 		}
@@ -132,7 +127,14 @@ void check_buttons() {
 	}
 }
 
-
+void logname(char const *date,char const *time, char *buff) { 
+    int month, day, year,hour,min,sec;
+    static const char month_names[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
+    sscanf(date, "%s %d %d", buff, &day, &year);
+    month = (strstr(month_names, buff)-month_names)/3+1;
+	sscanf(time, "%d:%d:%d", &hour, &min, &sec);
+    sprintf(buff, "%d.%02d%02d.%02d", year, month, day, hour);
+}
 
 //========================================================================================
 //----------------------------------------------------------------------------------------
@@ -140,7 +142,14 @@ void check_buttons() {
 
 void setup(){
     Serial.begin(115200);
-
+  Serial.print (F(__DATE__)) ;
+  Serial.print (" ") ;
+  Serial.println (F(__TIME__)) ;
+   Serial.print("log file name: ");
+  char filename[16];
+  logname(__DATE__, __TIME__, version);
+  Serial.println(version);
+  
     pinMode(LED_BUILTIN,OUTPUT);
     digitalWrite(LED_BUILTIN,HIGH);
 	
@@ -153,8 +162,8 @@ void setup(){
 	if (hardware_version >= HARDWARE_VERSION_20200303_VD) {
 		pinMode(PIN_ENABLE_SERVOS1_4, OUTPUT);
 		pinMode(PIN_ENABLE_SERVOS5_6, OUTPUT);
-		digitalWrite(PIN_ENABLE_SERVOS1_4,HIGH);
-		digitalWrite(PIN_ENABLE_SERVOS5_6,HIGH);
+		digitalWrite(PIN_ENABLE_SERVOS1_4,LOW);
+		digitalWrite(PIN_ENABLE_SERVOS5_6,LOW);
 	}
 	
 	for (int i = 0; i< NUM_SERVOS; i++) {

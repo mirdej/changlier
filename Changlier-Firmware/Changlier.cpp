@@ -254,10 +254,10 @@ void write_settings() {
     	preferences.putBytes("ease_distance",servo_ease_distance,NUM_SERVOS);
     	preferences.putBytes("channel",servo_channel,NUM_SERVOS);
     	
-		preferences.putInt("battery_max_ad",battery_max_ad);
-		preferences.putInt("battery_min_ad",battery_min_ad);
-		preferences.putInt("battery_low_ad",battery_low_ad);
-		preferences.putInt("battery_monitor_interval",battery_monitor_interval);
+		preferences.putInt("batt_max_ad",battery_max_ad);
+		preferences.putInt("batt_min_ad",battery_min_ad);
+		preferences.putInt("batt_low_ad",battery_low_ad);
+		preferences.putInt("batt_interval",battery_monitor_interval);
 
 	preferences.end();
 	Serial.println("Settings written");
@@ -335,7 +335,7 @@ void check_dmx() {
 	
     if(DMX::IsHealthy()) {
 		last_packet = millis();	    
-		for (int i = 0; i < NUM_SERVOS; i++) {
+		for (int i = 0; i < NUM_SERVOS; i++) {				// channels 0-5: servos
 			if (!dmx_detach[i]) {
 				val = DMX::Read(i + dmx_address);
 				
@@ -347,7 +347,17 @@ void check_dmx() {
 			}
 		}
 		
-		for (int i = 7; i < 16; i++) {
+		val =  DMX::Read(6 + dmx_address);					// channel 6 detach
+		if (val < 129 && val > 0) {
+			val = val - 1;
+			if (val != old_values[6]) {
+				old_values[6] = val;	
+				activity++;	
+				detach_control(val);
+			}
+		}
+		
+		for (int i = 7; i < 16; i++) {							// channels 7-15: led control
 			if (!dmx_detach[i]) {
 				val = DMX::Read(i + dmx_address);
 				if (val < 129 && val > 0) {
@@ -399,7 +409,6 @@ void check_battery(void) {
 
 void park(boolean detach) {
 	for (int i = 0; i< NUM_SERVOS; i++) {
-		if (!myservo[i].attached()) myservo[i].attach(servo_pin[i]);
 		if (servo_ease[i] < 4) set_easing(i, 4);
 		myservo[i].startEaseTo(servo_startup[i], servo_speed[i] / 2);
 	}
@@ -409,16 +418,35 @@ void park(boolean detach) {
 }
 
 void detach_all() {
-	for (int i = 0; i< NUM_SERVOS; i++) {
-		myservo[i].detach();
-	}
+	digitalWrite(PIN_ENABLE_SERVOS1_4, HIGH);
+	digitalWrite(PIN_ENABLE_SERVOS5_6, HIGH);
 }
 
 void attach_all() {
-	for (int i = 0; i< NUM_SERVOS; i++) {
-		myservo[i].attach(servo_pin[i]);
+	digitalWrite(PIN_ENABLE_SERVOS1_4, LOW);
+	digitalWrite(PIN_ENABLE_SERVOS5_6, LOW);
+}
+
+
+void detach_control(char val) {
+	if (hardware_version < HARDWARE_VERSION_20200303_VD) return;
+
+	if (val < 32) { 
+		digitalWrite(PIN_ENABLE_SERVOS1_4, LOW); 
+		digitalWrite(PIN_ENABLE_SERVOS5_6, LOW);				
+	} else if ( val < 64 ) {
+		digitalWrite(PIN_ENABLE_SERVOS1_4, HIGH); 
+		digitalWrite(PIN_ENABLE_SERVOS5_6, LOW);
+	} else if ( val < 96 ){
+		digitalWrite(PIN_ENABLE_SERVOS1_4, LOW); 
+		digitalWrite(PIN_ENABLE_SERVOS5_6, HIGH);
+	} else {
+		digitalWrite(PIN_ENABLE_SERVOS1_4, HIGH); 
+		digitalWrite(PIN_ENABLE_SERVOS5_6, HIGH);
 	}
 }
+
+//----------------------------------------------------------------------------------------
 
 void led_control(char idx, char val) {
 	if (idx < 7 ) return;
@@ -445,6 +473,7 @@ void led_control(char idx, char val) {
 	}
 }
 
+//----------------------------------------------------------------------------------------
 
 void set_servo (char idx, char val) {
 	val = map(val ,0,127,servo_minimum[idx],servo_maximum[idx]);
@@ -458,6 +487,7 @@ void set_servo (char idx, char val) {
 		}
 	}
 }
+//----------------------------------------------------------------------------------------
 
 void servo_control(char chan, char val){
 	if (servo_channels_messed_up) {
