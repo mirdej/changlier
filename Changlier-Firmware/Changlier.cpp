@@ -48,9 +48,16 @@ unsigned char 				servo_minimum[NUM_SERVOS];
 unsigned char 				servo_maximum[NUM_SERVOS];
 unsigned char 				servo_detach_minimum[NUM_SERVOS];
 unsigned char 				servo_detach_maximum[NUM_SERVOS];
+
+unsigned char				detach_mask;
+unsigned char				global_detach;
+
+
 unsigned char 				sent_status[NUM_SERVOS + 1];
 
 unsigned char				send_status_back;
+
+
 
 int							activity;
 //========================================================================================
@@ -389,7 +396,19 @@ void live_update() {
 	if (send_status_back) {
 		for (int i = 0; i < NUM_SERVOS; i++) {
 			val = myservo[i].getCurrentAngle();
-			val = map(val,servo_minimum[i],servo_maximum[i],0,127);
+	
+			if (servo_detach_minimum[i] == servo_detach_maximum[i]) {
+				val = map(val,servo_minimum[i],servo_maximum[i],0,127);
+			} else {
+				char split = servo_detach_minimum[i] + servo_detach_maximum[i] / 2;
+				split = map(split,0,127,servo_minimum[i],servo_maximum[i]);
+				if (val < split) {
+					val = map (val,servo_minimum[i],split,0,servo_detach_minimum[i]);
+				} else {
+					val = map (val,split,servo_maximum[i],servo_detach_maximum[i],127);
+				}
+			}
+			
 			if (sent_status[i] != val) {
 				sent_status[i] = val;
 				send_midi_control_change( 31 + i , val);
@@ -459,15 +478,25 @@ void detach_control(char val) {
 	if (hardware_version < HARDWARE_VERSION_20200303_VD) return;
 
 	if (val < 32) { 
-		digitalWrite(PIN_ENABLE_SERVOS1_4, LOW); 
-		digitalWrite(PIN_ENABLE_SERVOS5_6, LOW);
+		global_detach = 0;
+		if (!detach_mask) {
+			digitalWrite(PIN_ENABLE_SERVOS1_4, LOW); 
+			digitalWrite(PIN_ENABLE_SERVOS5_6, LOW);
+		}
 	} else if ( val < 64 ) {
-		digitalWrite(PIN_ENABLE_SERVOS1_4, HIGH); 
-		digitalWrite(PIN_ENABLE_SERVOS5_6, LOW);
+		global_detach = 0x0F;
+		digitalWrite(PIN_ENABLE_SERVOS1_4, HIGH);
+		if (!detach_mask & 0xF0) {
+			digitalWrite(PIN_ENABLE_SERVOS5_6, LOW);
+		}
 	} else if ( val < 96 ){
-		digitalWrite(PIN_ENABLE_SERVOS1_4, LOW); 
+		global_detach = 0xF0;
+		if (!detach_mask & 0x0F) {
+			digitalWrite(PIN_ENABLE_SERVOS1_4, LOW);
+		}
 		digitalWrite(PIN_ENABLE_SERVOS5_6, HIGH);
 	} else {
+		global_detach = 0xFF;
 		digitalWrite(PIN_ENABLE_SERVOS1_4, HIGH); 
 		digitalWrite(PIN_ENABLE_SERVOS5_6, HIGH);
 	}
@@ -503,16 +532,45 @@ void led_control(char idx, char val) {
 //----------------------------------------------------------------------------------------
 
 void set_servo (char idx, char val) {
+	char detach;
+
+	
 	if (hardware_version >= HARDWARE_VERSION_20200303_VD) {
+
+		if ((val > servo_detach_minimum[idx]) && (val < servo_detach_maximum[idx])) { detach_mask |= 1 << idx; }
+		else { detach_mask &= ~(1 << idx); }
+		
+		detach = detach_mask | global_detach;
+
 		if (idx < 4) {
-			if (digitalRead(PIN_ENABLE_SERVOS1_4)) return;
+			if (detach & 0x0F) {
+				digitalWrite(PIN_ENABLE_SERVOS1_4, HIGH);
+				return;
+			} else {
+				digitalWrite(PIN_ENABLE_SERVOS1_4, LOW);
+			}
 		} else {
-			if (digitalRead(PIN_ENABLE_SERVOS5_6)) return;
+			if (detach & 0xF0) {
+				digitalWrite(PIN_ENABLE_SERVOS5_6, HIGH);
+				return;
+			} else {
+				digitalWrite(PIN_ENABLE_SERVOS5_6, LOW);
+			}
 		}
 	}
 	
-
-	val = map(val ,0,127,servo_minimum[idx],servo_maximum[idx]);
+	if (servo_detach_minimum[idx] == servo_detach_maximum[idx]) {
+		val = map(val ,0,127,servo_minimum[idx],servo_maximum[idx]);
+	} else {
+		char split = servo_detach_minimum[idx] + servo_detach_maximum[idx] / 2;
+		split = map(split,0,127,servo_minimum[idx],servo_maximum[idx]);
+		if (val < servo_detach_minimum[idx]) {
+			val = map (val,0,servo_detach_minimum[idx],servo_minimum[idx],split);
+		} else {
+			val = map (val,servo_detach_maximum[idx],127,split,servo_maximum[idx]);
+		}
+	}
+	
 	if (servo_ease[idx] == 0) {
 			myservo[idx].write(val);
 	} else {

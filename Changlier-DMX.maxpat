@@ -686,7 +686,7 @@
 					"maxclass" : "newobj",
 					"numinlets" : 2,
 					"numoutlets" : 3,
-					"outlettype" : [ "float", "int", "" ],
+					"outlettype" : [ "float", "", "" ],
 					"patcher" : 					{
 						"fileversion" : 1,
 						"appversion" : 						{
@@ -726,6 +726,18 @@
 						"style" : "",
 						"subpatcher_template" : "standard",
 						"boxes" : [ 							{
+								"box" : 								{
+									"id" : "obj-19",
+									"maxclass" : "newobj",
+									"numinlets" : 1,
+									"numoutlets" : 1,
+									"outlettype" : [ "bang" ],
+									"patching_rect" : [ 742.0, 252.0, 58.0, 22.0 ],
+									"text" : "loadbang"
+								}
+
+							}
+, 							{
 								"box" : 								{
 									"id" : "obj-39",
 									"maxclass" : "button",
@@ -842,7 +854,7 @@
 									"patching_rect" : [ 289.0, 234.0, 150.0, 20.0 ],
 									"presentation" : 1,
 									"presentation_rect" : [ 11.0, 2.0, 125.0, 20.0 ],
-									"textcolor" : [ 1.0, 1.0, 1.0, 1.0 ]
+									"textcolor" : [ 0.0, 0.0, 0.0, 0.0 ]
 								}
 
 							}
@@ -1255,6 +1267,30 @@
 							}
 , 							{
 								"patchline" : 								{
+									"destination" : [ "obj-18", 0 ],
+									"order" : 2,
+									"source" : [ "obj-19", 0 ]
+								}
+
+							}
+, 							{
+								"patchline" : 								{
+									"destination" : [ "obj-5", 0 ],
+									"order" : 1,
+									"source" : [ "obj-19", 0 ]
+								}
+
+							}
+, 							{
+								"patchline" : 								{
+									"destination" : [ "obj-6", 0 ],
+									"order" : 0,
+									"source" : [ "obj-19", 0 ]
+								}
+
+							}
+, 							{
+								"patchline" : 								{
 									"destination" : [ "obj-3", 0 ],
 									"source" : [ "obj-2", 0 ]
 								}
@@ -1479,7 +1515,7 @@
 					"presentation" : 1,
 					"presentation_rect" : [ 496.599976000000026, 118.0, 31.0, 20.0 ],
 					"text" : "V",
-					"textcolor" : [ 1.0, 1.0, 1.0, 1.0 ]
+					"textcolor" : [ 0.0, 0.0, 0.0, 0.0 ]
 				}
 
 			}
@@ -1497,17 +1533,17 @@
 					"patching_rect" : [ 964.0, 1313.0, 40.0, 22.0 ],
 					"presentation" : 1,
 					"presentation_rect" : [ 469.599976000000026, 117.0, 40.0, 22.0 ],
-					"textcolor" : [ 1.0, 1.0, 1.0, 1.0 ],
+					"textcolor" : [ 0.0, 0.0, 0.0, 0.0 ],
 					"triangle" : 0
 				}
 
 			}
 , 			{
 				"box" : 				{
-					"bgcolor" : [ 1.0, 1.0, 1.0, 0.0 ],
-					"elementcolor" : [ 0.3, 0.3, 0.3, 1.0 ],
+					"bgcolor" : [ 0.0, 0.0, 0.0, 0.0 ],
+					"elementcolor" : [ 0.0, 0.0, 0.0, 0.0 ],
 					"id" : "obj-295",
-					"knobcolor" : [ 1.0, 0.0, 0.0, 1.0 ],
+					"knobcolor" : [ 0.0, 0.0, 0.0, 0.0 ],
 					"maxclass" : "slider",
 					"numinlets" : 1,
 					"numoutlets" : 1,
@@ -2924,6 +2960,7 @@
 				"box" : 				{
 					"bgcolor" : [ 0.3, 0.3, 0.3, 1.0 ],
 					"id" : "obj-238",
+					"ignoreclick" : 1,
 					"maxclass" : "number",
 					"maximum" : 16,
 					"minimum" : 1,
@@ -2934,7 +2971,8 @@
 					"patching_rect" : [ 54.5, 465.0, 50.0, 22.0 ],
 					"presentation" : 1,
 					"presentation_rect" : [ 739.47143600000004, 40.0, 31.52856399999996, 22.0 ],
-					"textcolor" : [ 255.0, 255.0, 255.0, 1.0 ]
+					"textcolor" : [ 255.0, 255.0, 255.0, 1.0 ],
+					"triangle" : 0
 				}
 
 			}
@@ -3143,6 +3181,7 @@
 					"bgfillcolor_proportion" : 0.5,
 					"bgfillcolor_type" : "color",
 					"id" : "obj-219",
+					"ignoreclick" : 1,
 					"items" : [ "Inconnu", ",", "Invalid", ",", "Juin", 2019, ",", "Mat", ",", "Mat", "avec", "modif", "senseur", "voltage", ",", "Mat", "detach-test", ",", "4ème", "génération" ],
 					"maxclass" : "umenu",
 					"numinlets" : 1,
@@ -3756,6 +3795,7 @@
 							}
 , 							{
 								"box" : 								{
+									"active" : 0,
 									"fontsize" : 14.0,
 									"id" : "obj-8",
 									"maxclass" : "textbutton",
@@ -4111,6 +4151,7 @@
 							}
 , 							{
 								"box" : 								{
+									"active" : 0,
 									"fontsize" : 14.0,
 									"id" : "obj-162",
 									"maxclass" : "textbutton",
@@ -5098,6 +5139,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-201",
 					"maxclass" : "textbutton",
@@ -9556,6 +9598,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-199",
 					"maxclass" : "textbutton",
@@ -9584,6 +9627,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-197",
 					"maxclass" : "textbutton",
@@ -9612,6 +9656,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-195",
 					"maxclass" : "textbutton",
@@ -9640,6 +9685,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-193",
 					"maxclass" : "textbutton",
@@ -9722,6 +9768,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-185",
 					"maxclass" : "textbutton",
@@ -10072,6 +10119,7 @@
 					"fontname" : "Lucida Grande",
 					"fontsize" : 12.0,
 					"id" : "obj-152",
+					"ignoreclick" : 1,
 					"maxclass" : "number",
 					"numinlets" : 1,
 					"numoutlets" : 2,
@@ -10080,7 +10128,8 @@
 					"patching_rect" : [ 1049.428573500000084, 621.0, 54.0, 23.0 ],
 					"presentation" : 1,
 					"presentation_rect" : [ 772.97143600000004, 66.0, 54.0, 23.0 ],
-					"textcolor" : [ 255.0, 255.0, 255.0, 1.0 ]
+					"textcolor" : [ 255.0, 255.0, 255.0, 1.0 ],
+					"triangle" : 0
 				}
 
 			}
@@ -10121,6 +10170,7 @@
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontsize" : 14.0,
 					"id" : "obj-162",
 					"maxclass" : "textbutton",
@@ -10456,6 +10506,7 @@
 				"box" : 				{
 					"fontsize" : 14.0,
 					"id" : "obj-168",
+					"ignoreclick" : 1,
 					"keymode" : 1,
 					"maxclass" : "textedit",
 					"numinlets" : 1,
@@ -10464,8 +10515,7 @@
 					"parameter_enable" : 0,
 					"patching_rect" : [ 1654.5, 918.0, 132.0, 25.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 625.47143600000004, 97.0, 201.5, 25.0 ],
-					"text" : "Bebe Changlier"
+					"presentation_rect" : [ 625.47143600000004, 97.0, 201.5, 25.0 ]
 				}
 
 			}
@@ -13029,14 +13079,12 @@
 					"fontname" : "Lucida Grande",
 					"fontsize" : 12.0,
 					"id" : "obj-64",
-					"linecount" : 7,
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 492.0, 832.0, 47.25, 105.0 ],
+					"patching_rect" : [ 492.0, 832.0, 47.25, 21.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 22.0, 66.5, 204.0, 21.0 ],
-					"text" : "Firmware version: 2020.0501.13"
+					"presentation_rect" : [ 22.0, 66.5, 204.0, 21.0 ]
 				}
 
 			}
@@ -13069,19 +13117,18 @@
 					"fontname" : "Lucida Grande Bold",
 					"fontsize" : 48.0,
 					"id" : "obj-48",
-					"linecount" : 12,
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 658.59997599999997, 811.0, 52.0, 685.0 ],
+					"patching_rect" : [ 658.59997599999997, 811.0, 52.0, 63.0 ],
 					"presentation" : 1,
-					"presentation_rect" : [ 22.0, 18.0, 605.0, 63.0 ],
-					"text" : "Bebe Changlier"
+					"presentation_rect" : [ 22.0, 18.0, 605.0, 63.0 ]
 				}
 
 			}
 , 			{
 				"box" : 				{
+					"active" : 0,
 					"fontname" : "Lucida Grande",
 					"id" : "obj-49",
 					"maxclass" : "textbutton",
@@ -13102,6 +13149,7 @@
 					"fontname" : "Lucida Grande",
 					"fontsize" : 12.0,
 					"id" : "obj-36",
+					"ignoreclick" : 1,
 					"maxclass" : "number",
 					"numinlets" : 1,
 					"numoutlets" : 2,
@@ -13110,7 +13158,8 @@
 					"patching_rect" : [ 127.0, 498.0, 54.0, 23.0 ],
 					"presentation" : 1,
 					"presentation_rect" : [ 772.97143600000004, 39.0, 54.0, 23.0 ],
-					"textcolor" : [ 255.0, 255.0, 255.0, 1.0 ]
+					"textcolor" : [ 255.0, 255.0, 255.0, 1.0 ],
+					"triangle" : 0
 				}
 
 			}
@@ -13415,7 +13464,7 @@
 , 			{
 				"box" : 				{
 					"angle" : 270.0,
-					"bgcolor" : [ 0.08, 0.08, 0.08 ],
+					"bgcolor" : [ 0.24, 0.25, 0.27 ],
 					"border" : 1,
 					"bordercolor" : [ 0.0, 0.0, 0.0, 1.0 ],
 					"id" : "obj-254",
