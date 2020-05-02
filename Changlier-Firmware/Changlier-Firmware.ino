@@ -23,8 +23,8 @@ char  version[16];
 const char 	servo_pin[] 			= {32,33,25,26,27,14};
 const char  note_pin[]				= {22,21,23,19};
 const char	PIN_PIXELS				= 13;
-const char	PIN_ENABLE_SERVOS1_4	= 15;
-const char	PIN_ENABLE_SERVOS5_6	= 4;
+const char	PIN_DISABLE_SERVOS1_4	= 15;
+const char	PIN_DISABLE_SERVOS5_6	= 4;
 const char 	PIN_V_SENS				= 35;
 
 
@@ -38,7 +38,7 @@ const char 	PIN_V_SENS				= 35;
 
 void handle_control_change(char ctl, char val) {
 	char idx = ctl - 1;
-	if (val > 127)
+	if (val > 127) val = 127;
 
 	if (idx < DMX_CHANNELS && idx >= 0) dmx_detach[idx] = DMX_DETACH_TIME;
 
@@ -47,7 +47,7 @@ void handle_control_change(char ctl, char val) {
 			servo_control(idx,val);
 		} else if (idx == 6) {
 			detach_control(val);
-		} else {
+		} else  if (idx < 16) {
 			led_control(idx,val);
 		}
 	}
@@ -157,10 +157,10 @@ void setup(){
 
 	
 	if (hardware_version >= HARDWARE_VERSION_20200303_VD) {
-		pinMode(PIN_ENABLE_SERVOS1_4, OUTPUT);
-		pinMode(PIN_ENABLE_SERVOS5_6, OUTPUT);
-		digitalWrite(PIN_ENABLE_SERVOS1_4,LOW);
-		digitalWrite(PIN_ENABLE_SERVOS5_6,LOW);
+		pinMode(PIN_DISABLE_SERVOS1_4, OUTPUT);
+		pinMode(PIN_DISABLE_SERVOS5_6, OUTPUT);
+		digitalWrite(PIN_DISABLE_SERVOS1_4,LOW);
+		digitalWrite(PIN_DISABLE_SERVOS5_6,LOW);
 	}
 	
 	for (int i = 0; i< NUM_SERVOS; i++) {

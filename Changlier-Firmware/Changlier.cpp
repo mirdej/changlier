@@ -387,26 +387,28 @@ void check_dmx() {
 
 void check_dmx_detach(void) {
 	for (int i = 0; i < DMX_CHANNELS; i++) {
-		if (dmx_detach[i]) dmx_detach[i]--;
+		if (dmx_detach[i])  {
+			dmx_detach[i]--;
+		}
 	}
 }
 
 void live_update() {
-	char val;
+	int val;
 	if (send_status_back) {
 		for (int i = 0; i < NUM_SERVOS; i++) {
 			val = myservo[i].getCurrentAngle();
 	
-			if (servo_detach_minimum[i] == servo_detach_maximum[i]) {
+			if (servo_detach_minimum[i] >= servo_detach_maximum[i]) {
 				val = map(val,servo_minimum[i],servo_maximum[i],0,127);
 			} else {
-				char split = servo_detach_minimum[i] + servo_detach_maximum[i] / 2;
+				int split = servo_detach_minimum[i] + servo_detach_maximum[i] / 2;
 				split = map(split,0,127,servo_minimum[i],servo_maximum[i]);
 				if (val < split) {
-					val = map (val,servo_minimum[i],split,0,servo_detach_minimum[i]);
-				} else {
-					val = map (val,split,servo_maximum[i],servo_detach_maximum[i],127);
-				}
+					val = map (val,servo_minimum[i],split-1,0,servo_detach_minimum[i]);
+				} else if (val > split)	{
+					val = map (val,split+1,servo_maximum[i],servo_detach_maximum[i],127);
+				} else {val = servo_detach_minimum[i] + servo_detach_maximum[i] / 2;}
 			}
 			
 			if (sent_status[i] != val) {
@@ -415,8 +417,8 @@ void live_update() {
 
 			}
 		}
-		val = digitalRead(PIN_ENABLE_SERVOS1_4) << 1;
-		val |= digitalRead(PIN_ENABLE_SERVOS5_6);
+		val = digitalRead(PIN_DISABLE_SERVOS1_4) << 1;
+		val |= digitalRead(PIN_DISABLE_SERVOS5_6);
 		if (sent_status[NUM_SERVOS] != val) {
 				sent_status[NUM_SERVOS] = val;
 				send_midi_control_change( 39 , val);
@@ -464,13 +466,13 @@ void park(boolean detach) {
 }
 
 void detach_all() {
-	digitalWrite(PIN_ENABLE_SERVOS1_4, HIGH);
-	digitalWrite(PIN_ENABLE_SERVOS5_6, HIGH);
+	digitalWrite(PIN_DISABLE_SERVOS1_4, HIGH);
+	digitalWrite(PIN_DISABLE_SERVOS5_6, HIGH);
 }
 
 void attach_all() {
-	digitalWrite(PIN_ENABLE_SERVOS1_4, LOW);
-	digitalWrite(PIN_ENABLE_SERVOS5_6, LOW);
+	digitalWrite(PIN_DISABLE_SERVOS1_4, LOW);
+	digitalWrite(PIN_DISABLE_SERVOS5_6, LOW);
 }
 
 
@@ -480,25 +482,25 @@ void detach_control(char val) {
 	if (val < 32) { 
 		global_detach = 0;
 		if (!detach_mask) {
-			digitalWrite(PIN_ENABLE_SERVOS1_4, LOW); 
-			digitalWrite(PIN_ENABLE_SERVOS5_6, LOW);
+			digitalWrite(PIN_DISABLE_SERVOS1_4, LOW); 
+			digitalWrite(PIN_DISABLE_SERVOS5_6, LOW);
 		}
 	} else if ( val < 64 ) {
 		global_detach = 0x0F;
-		digitalWrite(PIN_ENABLE_SERVOS1_4, HIGH);
+		digitalWrite(PIN_DISABLE_SERVOS1_4, HIGH);
 		if (!detach_mask & 0xF0) {
-			digitalWrite(PIN_ENABLE_SERVOS5_6, LOW);
+			digitalWrite(PIN_DISABLE_SERVOS5_6, LOW);
 		}
 	} else if ( val < 96 ){
 		global_detach = 0xF0;
 		if (!detach_mask & 0x0F) {
-			digitalWrite(PIN_ENABLE_SERVOS1_4, LOW);
+			digitalWrite(PIN_DISABLE_SERVOS1_4, LOW);
 		}
-		digitalWrite(PIN_ENABLE_SERVOS5_6, HIGH);
+		digitalWrite(PIN_DISABLE_SERVOS5_6, HIGH);
 	} else {
 		global_detach = 0xFF;
-		digitalWrite(PIN_ENABLE_SERVOS1_4, HIGH); 
-		digitalWrite(PIN_ENABLE_SERVOS5_6, HIGH);
+		digitalWrite(PIN_DISABLE_SERVOS1_4, HIGH); 
+		digitalWrite(PIN_DISABLE_SERVOS5_6, HIGH);
 	}
 }
 
@@ -537,6 +539,7 @@ void set_servo (char idx, char val) {
 	
 	if (hardware_version >= HARDWARE_VERSION_20200303_VD) {
 
+	
 		if ((val > servo_detach_minimum[idx]) && (val < servo_detach_maximum[idx])) { detach_mask |= 1 << idx; }
 		else { detach_mask &= ~(1 << idx); }
 		
@@ -544,30 +547,32 @@ void set_servo (char idx, char val) {
 
 		if (idx < 4) {
 			if (detach & 0x0F) {
-				digitalWrite(PIN_ENABLE_SERVOS1_4, HIGH);
+				digitalWrite(PIN_DISABLE_SERVOS1_4, HIGH);
 				return;
 			} else {
-				digitalWrite(PIN_ENABLE_SERVOS1_4, LOW);
+				digitalWrite(PIN_DISABLE_SERVOS1_4, LOW);
 			}
 		} else {
 			if (detach & 0xF0) {
-				digitalWrite(PIN_ENABLE_SERVOS5_6, HIGH);
+				digitalWrite(PIN_DISABLE_SERVOS5_6, HIGH);
 				return;
 			} else {
-				digitalWrite(PIN_ENABLE_SERVOS5_6, LOW);
+				digitalWrite(PIN_DISABLE_SERVOS5_6, LOW);
 			}
 		}
 	}
 	
-	if (servo_detach_minimum[idx] == servo_detach_maximum[idx]) {
+	if (servo_detach_minimum[idx] >= servo_detach_maximum[idx]) {
 		val = map(val ,0,127,servo_minimum[idx],servo_maximum[idx]);
 	} else {
 		char split = servo_detach_minimum[idx] + servo_detach_maximum[idx] / 2;
 		split = map(split,0,127,servo_minimum[idx],servo_maximum[idx]);
-		if (val < servo_detach_minimum[idx]) {
+		if (val <= servo_detach_minimum[idx]) {
 			val = map (val,0,servo_detach_minimum[idx],servo_minimum[idx],split);
-		} else {
+		} else if (val >= servo_detach_maximum[idx]) {
 			val = map (val,servo_detach_maximum[idx],127,split,servo_maximum[idx]);
+		} else {
+			val = split;
 		}
 	}
 	

@@ -18,9 +18,7 @@
 
 #define SYSEX_NOP				0
 
-#define SYSEX_DATA_DUMP			1
-#define SYSEX_DATA_DUMP_DATA	2
-
+#define SYSEX_SEND_STATUS		1
 
 #define SYSEX_HW_VERSION		7
 #define SYSEX_GET_HW_VERSION	8
@@ -53,6 +51,12 @@
 
 #define SYSEX_SET_SSID		80
 #define SYSEX_SET_PASSWORD		81
+#define SYSEX_GET_SSID		82
+#define SYSEX_GET_PASSWORD		83
+#define SYSEX_SSID			84
+#define SYSEX_PASSWORD		85
+
+
 
 #define SYSEX_GET_PARAM		90
 #define SYSEX_PARAM_DATA	91

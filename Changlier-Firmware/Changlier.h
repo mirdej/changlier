@@ -73,8 +73,8 @@
 extern const char 	servo_pin[] ;
 extern const char  	note_pin[];	
 extern const char	PIN_PIXELS;
-extern const char	PIN_ENABLE_SERVOS1_4;
-extern const char	PIN_ENABLE_SERVOS5_6;
+extern const char	PIN_DISABLE_SERVOS1_4;
+extern const char	PIN_DISABLE_SERVOS5_6;
 extern const char	PIN_STATUS_PIX;
 extern const char 	PIN_V_SENS;
 

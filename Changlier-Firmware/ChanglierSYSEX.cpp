@@ -16,6 +16,9 @@ void handle_sysex_builtin(std::string rxValue) {
 		case SYSEX_NOP:
 			Serial.print("NOP");
 			break;								
+		case SYSEX_SEND_STATUS:
+			send_status_back = 1;
+			break;
 		case SYSEX_NAMECHANGE:
 			Serial.println("Attempt name change");
 			if (len > rxValue.length() - 8) {
@@ -56,8 +59,9 @@ void handle_sysex_builtin(std::string rxValue) {
 						Serial.println("PARSE ERROR: Forbidden char");
 					}
 				}
+				ssid = new_name;
 				preferences.begin("changlier", false);
-				preferences.putString("ssid",new_name);
+				preferences.putString("ssid",ssid);
 				preferences.end();
 			}
 			break;
@@ -77,10 +81,17 @@ void handle_sysex_builtin(std::string rxValue) {
 						Serial.println("PARSE ERROR: Forbidden char");
 					}
 				}
+				password = new_name;
 				preferences.begin("changlier", false);
-				preferences.putString("password",new_name);
+				preferences.putString("password",password);
 				preferences.end();
 			}
+			break;
+		case SYSEX_GET_SSID:
+			send_sysex(SYSEX_SSID, const_cast<char*>(ssid.c_str()), ssid.length());
+			break;
+		case SYSEX_GET_PASSWORD:			
+			send_sysex(SYSEX_PASSWORD, const_cast<char*>(password.c_str()), password.length());
 			break;
 		case SYSEX_START_WIFI:
 			enable_wifi();
@@ -117,7 +128,6 @@ void handle_sysex_builtin(std::string rxValue) {
 			}
 			break;
 		case SYSEX_GET_VERSION:
-			send_status_back = 1;
 			send_sysex(SYSEX_VERSION_DATA, (char *)version, 12);
 			break;
 		case SYSEX_GET_DMX_ADDRESS:
@@ -329,7 +339,8 @@ void get_param(int channel, int param){
 
 void set_param(int channel,int param, int value) {
 	//Serial.print("Set Param ");	Serial.print(param);	Serial.print(" for channel ");Serial.print(channel);Serial.print(" to value ");Serial.println(value);
-
+	char dont_save = 0;
+	
 	switch (param) {
 		case  PARAM_min : 
 			if (value > 180) value = 180;
@@ -380,6 +391,7 @@ void set_param(int channel,int param, int value) {
 			break;
 			
 		case PARAM_reset_all:
+			dont_save = 1;
 			if (value == 1 ) park(0);
 			if (value == 2 ) attach_all();
 			if (value == 3 ) detach_all();
@@ -403,7 +415,7 @@ void set_param(int channel,int param, int value) {
 			}
 
 	}
-	settings_changed = true;
+	if (! dont_save) settings_changed = true;
 }
 
 
