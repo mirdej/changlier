@@ -49,7 +49,6 @@ unsigned char 				servo_maximum[NUM_SERVOS];
 unsigned char 				servo_detach_minimum[NUM_SERVOS];
 unsigned char 				servo_detach_maximum[NUM_SERVOS];
 
-unsigned char				detach_mask;
 unsigned char				global_detach;
 
 
@@ -145,7 +144,10 @@ void read_preferences() {
     if (hostname == String()) { hostname = "Bebe Changlier"; }
 
 	dmx_address = preferences.getInt("dmx_address",1);
-	wifi_enabled = preferences.getInt("wifi",1);
+	wifi_enabled = preferences.getInt("wifi",0);
+	preferences.putInt("wifi",0);   // this is a one time flag 
+	//to see if we need to start up in Wifi Mode, next time it should always be BLE again
+
 	
     ssid = preferences.getString("ssid");
     password = preferences.getString("password");
@@ -394,11 +396,13 @@ void check_dmx_detach(void) {
 }
 
 void live_update() {
-	int val;
+	int val,detach_state;
+	detach_state = 0;
 	if (send_status_back) {
 		for (int i = 0; i < NUM_SERVOS; i++) {
 			val = myservo[i].getCurrentAngle();
-	
+			detach_state |= (~myservo[i].attached() & 1) << i;
+			
 			if (servo_detach_minimum[i] >= servo_detach_maximum[i]) {
 				val = map(val,servo_minimum[i],servo_maximum[i],0,127);
 			} else {
@@ -417,8 +421,8 @@ void live_update() {
 
 			}
 		}
-		val = digitalRead(PIN_DISABLE_SERVOS1_4) << 1;
-		val |= digitalRead(PIN_DISABLE_SERVOS5_6);
+		
+		val = detach_state;
 		if (sent_status[NUM_SERVOS] != val) {
 				sent_status[NUM_SERVOS] = val;
 				send_midi_control_change( 39 , val);
@@ -466,41 +470,37 @@ void park(boolean detach) {
 }
 
 void detach_all() {
-	digitalWrite(PIN_DISABLE_SERVOS1_4, HIGH);
-	digitalWrite(PIN_DISABLE_SERVOS5_6, HIGH);
+	for (int i = 0; i< NUM_SERVOS; i++) {
+		myservo[i].detach();
+	}
+	global_detach = 0xFF;
 }
 
 void attach_all() {
-	digitalWrite(PIN_DISABLE_SERVOS1_4, LOW);
-	digitalWrite(PIN_DISABLE_SERVOS5_6, LOW);
+	for (int i = 0; i< NUM_SERVOS; i++) {
+		myservo[i].attach(servo_pin[i]);
+	}
+	global_detach = 0x00;
 }
 
 
 void detach_control(char val) {
-	if (hardware_version < HARDWARE_VERSION_20200303_VD) return;
-
-	if (val < 32) { 
+	if (val < 32) {
 		global_detach = 0;
-		if (!detach_mask) {
-			digitalWrite(PIN_DISABLE_SERVOS1_4, LOW); 
-			digitalWrite(PIN_DISABLE_SERVOS5_6, LOW);
-		}
-	} else if ( val < 64 ) {
+	} else if (val < 64) {
 		global_detach = 0x0F;
-		digitalWrite(PIN_DISABLE_SERVOS1_4, HIGH);
-		if (!detach_mask & 0xF0) {
-			digitalWrite(PIN_DISABLE_SERVOS5_6, LOW);
-		}
-	} else if ( val < 96 ){
+	} else if (val < 96) {
 		global_detach = 0xF0;
-		if (!detach_mask & 0x0F) {
-			digitalWrite(PIN_DISABLE_SERVOS1_4, LOW);
-		}
-		digitalWrite(PIN_DISABLE_SERVOS5_6, HIGH);
 	} else {
 		global_detach = 0xFF;
-		digitalWrite(PIN_DISABLE_SERVOS1_4, HIGH); 
-		digitalWrite(PIN_DISABLE_SERVOS5_6, HIGH);
+	}
+	
+	for (int i = 0; i < NUM_SERVOS; i++) {
+		if (global_detach & 1 << i) {
+			if (myservo[i].attached()) myservo[i].detach();
+		} else {
+			if (!myservo[i].attached()) myservo[i].attach(servo_pin[i]);
+		}
 	}
 }
 
@@ -534,58 +534,42 @@ void led_control(char idx, char val) {
 //----------------------------------------------------------------------------------------
 
 void set_servo (char idx, char val) {
-	char detach;
 
-	
-	if (hardware_version >= HARDWARE_VERSION_20200303_VD) {
 
-	
-		if ((val > servo_detach_minimum[idx]) && (val < servo_detach_maximum[idx])) { detach_mask |= 1 << idx; }
-		else { detach_mask &= ~(1 << idx); }
-		
-		detach = detach_mask | global_detach;
-
-		if (idx < 4) {
-			if (detach & 0x0F) {
-				digitalWrite(PIN_DISABLE_SERVOS1_4, HIGH);
-				return;
-			} else {
-				digitalWrite(PIN_DISABLE_SERVOS1_4, LOW);
-			}
+	if ((val > servo_detach_minimum[idx]) && (val < servo_detach_maximum[idx])) { 
+		if (myservo[idx].attached()) { myservo[idx].detach(); }
+	} else {
+			
+		if (servo_detach_minimum[idx] >= servo_detach_maximum[idx]) {
+			val = map(val ,0,127,servo_minimum[idx],servo_maximum[idx]);
 		} else {
-			if (detach & 0xF0) {
-				digitalWrite(PIN_DISABLE_SERVOS5_6, HIGH);
-				return;
+			char split = servo_detach_minimum[idx] + servo_detach_maximum[idx] / 2;
+			split = map(split,0,127,servo_minimum[idx],servo_maximum[idx]);
+			if (val <= servo_detach_minimum[idx]) {
+				val = map (val,0,servo_detach_minimum[idx],servo_minimum[idx],split);
+			} else if (val >= servo_detach_maximum[idx]) {
+				val = map (val,servo_detach_maximum[idx],127,split,servo_maximum[idx]);
 			} else {
-				digitalWrite(PIN_DISABLE_SERVOS5_6, LOW);
+				val = split;
 			}
 		}
-	}
 	
-	if (servo_detach_minimum[idx] >= servo_detach_maximum[idx]) {
-		val = map(val ,0,127,servo_minimum[idx],servo_maximum[idx]);
-	} else {
-		char split = servo_detach_minimum[idx] + servo_detach_maximum[idx] / 2;
-		split = map(split,0,127,servo_minimum[idx],servo_maximum[idx]);
-		if (val <= servo_detach_minimum[idx]) {
-			val = map (val,0,servo_detach_minimum[idx],servo_minimum[idx],split);
-		} else if (val >= servo_detach_maximum[idx]) {
-			val = map (val,servo_detach_maximum[idx],127,split,servo_maximum[idx]);
+		if (!myservo[idx].attached()) { 
+			if (!(global_detach & (1 << idx))) {			// global detach takes precedence
+				myservo[idx].attach(servo_pin[idx]); 
+			}
+		}
+	
+		if (servo_ease[idx] == 0) {
+				myservo[idx].write(val);
 		} else {
-			val = split;
+			if (abs(val-myservo[idx].getCurrentAngle()) < servo_ease_distance[idx]) {
+				if (!myservo[idx].isMoving()) myservo[idx].write(val);
+			} else {
+				if (!myservo[idx].isMoving()) myservo[idx].startEaseTo(val,servo_speed[idx]);
+			}
 		}
 	}
-	
-	if (servo_ease[idx] == 0) {
-			myservo[idx].write(val);
-	} else {
-		if (abs(val-myservo[idx].getCurrentAngle()) < servo_ease_distance[idx]) {
-			if (!myservo[idx].isMoving()) myservo[idx].write(val);
-		} else {
-			if (!myservo[idx].isMoving()) myservo[idx].startEaseTo(val,servo_speed[idx]);
-		}
-	}
-
 }
 //----------------------------------------------------------------------------------------
 

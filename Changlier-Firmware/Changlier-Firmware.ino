@@ -12,6 +12,7 @@ char  version[16];
 //
 //		DMX Library: https://github.com/luksal/ESP32-DMX-RX
 //		Attention buffer overflow bug on line 134
+// 		ESP32Servo Library: https://github.com/madhephaestus/ESP32Servo v >= 0.7.1
 //
 //----------------------------------------------------------------------------------------
 
@@ -142,6 +143,7 @@ void makeversion(char const *date,char const *time, char *buff) {
 
 void setup(){
     Serial.begin(115200);
+	Serial.println("Startup");
 
 	makeversion(__DATE__, __TIME__, version);
 
@@ -150,58 +152,63 @@ void setup(){
     digitalWrite(LED_BUILTIN,HIGH);
 	
 	DMX::Initialize();
+	FastLED.addLeds<SK6812, PIN_PIXELS, RGB>(pixels, NUM_PIXELS);
 
-	Serial.println("Startup");
 
 	read_preferences();
 
-	
-	if (hardware_version >= HARDWARE_VERSION_20200303_VD) {
-		pinMode(PIN_DISABLE_SERVOS1_4, OUTPUT);
-		pinMode(PIN_DISABLE_SERVOS5_6, OUTPUT);
-		digitalWrite(PIN_DISABLE_SERVOS1_4,LOW);
-		digitalWrite(PIN_DISABLE_SERVOS5_6,LOW);
-	}
-	
-	for (int i = 0; i< NUM_SERVOS; i++) {
-		myservo[i].attach(servo_pin[i]);
-		myservo[i].write(servo_startup[i]);
-		set_easing(i, servo_ease[i]);
-	}
-	
-	bluetooth_init() ;
-
-	FastLED.addLeds<SK6812, PIN_PIXELS, RGB>(pixels, NUM_PIXELS);
-
-	for (int hue = 0; hue < 360; hue++) {
-    	fill_rainbow( pixels, NUM_PIXELS, hue, 7);
-	    delay(3);
-    	FastLED.show(); 
-  	}
-  
-	for (int i = 0; i< NUM_PIXELS; i++) {
-		colors[i].hue = 42; // yellow
-		colors[i].saturation = 160;
-		colors[i].value = 0;
-	}
-	leds_changed = true;
-	wifi_enabled = false;
-
-	for (int i = 0; i< NUM_NOTES; i++) {
-		pinMode(note_pin[i], INPUT_PULLUP);
-	}
+	if (wifi_enabled) {
+		enable_wifi();
+		delay(100);
+	} else {
+		bluetooth_init() ;
 		
-	// Wait for servo to reach start position.
-    delay(1000);
+		delay(1000); //leave some time for power to settle. prevents crash at sartup??
 
-	t.every(1,check_buttons);	
-	t.every(10,service_servos);
-	t.every(10,check_dmx);
-	t.every(50,update_leds);
-	t.every(50,live_update);
-	t.every(100,check_battery);
-	t.every(1000,check_dmx_detach);
-	t.every(10000,check_settings_changed);
+		if (hardware_version >= HARDWARE_VERSION_20200303_VD) {
+			pinMode(PIN_DISABLE_SERVOS1_4, OUTPUT);
+			pinMode(PIN_DISABLE_SERVOS5_6, OUTPUT);
+			digitalWrite(PIN_DISABLE_SERVOS1_4,LOW);
+			digitalWrite(PIN_DISABLE_SERVOS5_6,LOW);
+		}
+	
+		for (int i = 0; i< NUM_SERVOS; i++) {
+			myservo[i].attach(servo_pin[i]);
+			myservo[i].write(servo_startup[i]);
+			set_easing(i, servo_ease[i]);
+		}
+
+		for (int hue = 0; hue < 360; hue++) {
+			fill_rainbow( pixels, NUM_PIXELS, hue, 7);
+			delay(3);
+			FastLED.show(); 
+		}
+  
+		for (int i = 0; i< NUM_PIXELS; i++) {
+			colors[i].hue = 42; // yellow
+			colors[i].saturation = 160;
+			colors[i].value = 0;
+		}
+		leds_changed = true;
+
+	
+
+		for (int i = 0; i< NUM_NOTES; i++) {
+			pinMode(note_pin[i], INPUT_PULLUP);
+		}
+		
+		// Wait for servo to reach start position.
+		delay(1000);
+
+		t.every(1,check_buttons);	
+		t.every(10,service_servos);
+		t.every(10,check_dmx);
+		t.every(50,update_leds);
+		t.every(50,live_update);
+		t.every(100,check_battery);
+		t.every(1000,check_dmx_detach);
+		t.every(10000,check_settings_changed);
+	}
 	digitalWrite(LED_BUILTIN,LOW);
 	Serial.println("Setup finished");
 }

@@ -94,7 +94,13 @@ void handle_sysex_builtin(std::string rxValue) {
 			send_sysex(SYSEX_PASSWORD, const_cast<char*>(password.c_str()), password.length());
 			break;
 		case SYSEX_START_WIFI:
-			enable_wifi();
+			preferences.begin("changlier", false);
+			preferences.putInt("wifi",1);
+			preferences.end();
+			delay(500);
+			ESP.restart();
+			break;
+
 		case SYSEX_CLEAR_MIN_MAX:
 			if (channel < NUM_SERVOS) {
 					servo_minimum[channel] = 0;
