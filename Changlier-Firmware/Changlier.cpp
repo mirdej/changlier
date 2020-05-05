@@ -397,22 +397,33 @@ void check_dmx_detach(void) {
 
 void live_update() {
 	int val,detach_state;
+	int angle;
 	detach_state = 0;
 	if (send_status_back) {
 		for (int i = 0; i < NUM_SERVOS; i++) {
-			val = myservo[i].getCurrentAngle();
+			angle = myservo[i].getCurrentAngle();
+			
 			detach_state |= (~myservo[i].attached() & 1) << i;
 			
-			if (servo_detach_minimum[i] >= servo_detach_maximum[i]) {
-				val = map(val,servo_minimum[i],servo_maximum[i],0,127);
+			if (servo_detach_minimum[i] >= servo_detach_maximum[i]) {				// no auto detach
+				val = map(angle,servo_minimum[i],servo_maximum[i],0,127);
 			} else {
-				int split = servo_detach_minimum[i] + servo_detach_maximum[i] / 2;
-				split = map(split,0,127,servo_minimum[i],servo_maximum[i]);
-				if (val < split) {
-					val = map (val,servo_minimum[i],split-1,0,servo_detach_minimum[i]);
-				} else if (val > split)	{
-					val = map (val,split+1,servo_maximum[i],servo_detach_maximum[i],127);
-				} else {val = servo_detach_minimum[i] + servo_detach_maximum[i] / 2;}
+				int split_angle = (servo_detach_minimum[i] + servo_detach_maximum[i]) / 2;
+				split_angle = map(split_angle,0,127,servo_minimum[i],servo_maximum[i]);
+				
+				if (servo_minimum[i] < servo_maximum[i]) {
+					if (angle < split_angle) {
+						val = map (angle,servo_minimum[i],split_angle-1,0,servo_detach_minimum[i]);
+					} else if (val > split_angle)	{
+						val = map (angle,split_angle + 1,servo_maximum[i],servo_detach_maximum[i],127);
+					} else {val = (servo_detach_minimum[i] + servo_detach_maximum[i]) / 2;}
+				} else {
+					if (angle > split_angle) {
+						val = map (angle,servo_minimum[i],split_angle+1,0,servo_detach_minimum[i]);
+					} else if (val < split_angle)	{
+						val = map (angle,split_angle - 1,servo_maximum[i],servo_detach_maximum[i],127);
+					} else {val = (servo_detach_minimum[i] + servo_detach_maximum[i]) / 2;}
+				}
 			}
 			
 			if (sent_status[i] != val) {
@@ -543,7 +554,7 @@ void set_servo (char idx, char val) {
 		if (servo_detach_minimum[idx] >= servo_detach_maximum[idx]) {
 			val = map(val ,0,127,servo_minimum[idx],servo_maximum[idx]);
 		} else {
-			char split = servo_detach_minimum[idx] + servo_detach_maximum[idx] / 2;
+			int split = (servo_detach_minimum[idx] + servo_detach_maximum[idx]) / 2;
 			split = map(split,0,127,servo_minimum[idx],servo_maximum[idx]);
 			if (val <= servo_detach_minimum[idx]) {
 				val = map (val,0,servo_detach_minimum[idx],servo_minimum[idx],split);
@@ -564,7 +575,7 @@ void set_servo (char idx, char val) {
 				myservo[idx].write(val);
 		} else {
 			if (abs(val-myservo[idx].getCurrentAngle()) < servo_ease_distance[idx]) {
-				if (!myservo[idx].isMoving()) myservo[idx].write(val);
+				if (!myservo[idx].isMoving()) myservo[idx].write(val); // not sure about that, why not force write?
 			} else {
 				if (!myservo[idx].isMoving()) myservo[idx].startEaseTo(val,servo_speed[idx]);
 			}
